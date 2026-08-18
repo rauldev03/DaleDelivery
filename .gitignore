@@ -1,0 +1,22 @@
+# Variables de entorno
+.env
+.env.*
+
+# Dependencias
+node_modules/
+
+# Base de datos SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

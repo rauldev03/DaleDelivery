@@ -1,0 +1,241 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Reporte Diario de Operaciones</h1>
+    <p class="page-subtitle">Consolidado y auditoría de envíos para la fecha <strong><%= reportData.fecha %></strong></p>
+  </div>
+  <div>
+    <% 
+      const excelParams = `fecha=${encodeURIComponent(reportData.filters.fecha)}&clienteId=${encodeURIComponent(reportData.filters.clienteId)}&estado=${encodeURIComponent(reportData.filters.estado)}&distrito=${encodeURIComponent(reportData.filters.distrito)}`; 
+    %>
+    <a href="/reportes/diario/excel?<%= excelParams %>" class="btn btn-success" id="btn-export-excel" style="box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>Exportar a Excel (.xlsx)</span>
+    </a>
+  </div>
+</div>
+
+<!-- Barra de Filtros y Selector de Fecha -->
+<div class="card" style="margin-bottom: 20px;">
+  <div class="card-body" style="padding: 18px 24px;">
+    <form method="GET" action="/reportes/diario" class="filters-bar" style="width: 100%; gap: 14px;">
+      <!-- Selector de Fecha Obligatorio -->
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="fecha" style="font-weight: 700; font-size: 0.88rem; color: var(--primary);">Fecha del Reporte:</label>
+        <input 
+          type="date" 
+          name="fecha" 
+          id="fecha"
+          class="form-control" 
+          style="width: 160px; font-weight: 600; border-color: var(--primary);"
+          value="<%= reportData.fecha %>"
+          onchange="this.form.submit()"
+        >
+      </div>
+
+      <!-- Filtro por Cliente -->
+      <select name="clienteId" class="form-control" style="width: 220px;">
+        <option value="">Todos los clientes</option>
+        <% clients.forEach(c => { %>
+          <option value="<%= c.id %>" <%= String(reportData.filters.clienteId) === String(c.id) ? 'selected' : '' %>>
+            <%= c.codigoCliente %> - <%= c.razonSocialNombre %>
+          </option>
+        <% }); %>
+      </select>
+
+      <!-- Filtro por Estado -->
+      <select name="estado" class="form-control" style="width: 160px;">
+        <option value="">Todos los estados</option>
+        <option value="Registrado" <%= reportData.filters.estado === 'Registrado' ? 'selected' : '' %>>Registrado</option>
+        <option value="En proceso" <%= reportData.filters.estado === 'En proceso' ? 'selected' : '' %>>En proceso</option>
+        <option value="Entregado" <%= reportData.filters.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+        <option value="Cancelado" <%= reportData.filters.estado === 'Cancelado' ? 'selected' : '' %>>Cancelado</option>
+      </select>
+
+      <!-- Filtro por Distrito -->
+      <input 
+        type="text" 
+        name="distrito" 
+        class="form-control" 
+        style="width: 160px;"
+        placeholder="Filtrar por distrito" 
+        value="<%= reportData.filters.distrito %>"
+      >
+
+      <button type="submit" class="btn btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Aplicar Filtros</span>
+      </button>
+
+      <% if (reportData.filters.clienteId || reportData.filters.estado || reportData.filters.distrito) { %>
+        <a href="/reportes/diario?fecha=<%= reportData.fecha %>" class="btn btn-secondary" style="background-color: #fff; border-color: var(--border-color);">Limpiar Filtros</a>
+      <% } %>
+    </form>
+  </div>
+</div>
+
+<!-- Resumen del Día (KPI Cards) -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Total Envíos</span>
+      <span class="stat-value"><%= reportData.summary.totalEnvios %></span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon orange">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Clientes con Envíos</span>
+      <span class="stat-value"><%= reportData.summary.totalClientes %></span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon cyan">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Total Paquetes</span>
+      <span class="stat-value"><%= reportData.summary.totalPaquetes %></span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon green">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Entregados</span>
+      <span class="stat-value"><%= reportData.summary.totalEntregados %></span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon amber">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Pendientes</span>
+      <span class="stat-value"><%= reportData.summary.totalPendientes %></span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon red">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    </div>
+    <div class="stat-info">
+      <span class="stat-label">Cancelados</span>
+      <span class="stat-value"><%= reportData.summary.totalCancelados %></span>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla Detallada del Reporte Diario -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Detalle Operativo del Día (<%= reportData.shipments.length %> registros)</h2>
+  </div>
+
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>F. Registro</th>
+            <th>F. Entrega</th>
+            <th>Código Envío</th>
+            <th>Cód. Cliente</th>
+            <th>Cliente</th>
+            <th>Doc. Cliente</th>
+            <th>Destinatario</th>
+            <th>Teléfono</th>
+            <th>Dirección</th>
+            <th>Referencia</th>
+            <th>Distrito</th>
+            <th>Provincia</th>
+            <th>Dpto</th>
+            <th>Link Maps</th>
+            <th>Plus Code</th>
+            <th>Servicio</th>
+            <th style="text-align: center;">Paq.</th>
+            <th style="text-align: right;">Peso</th>
+            <th>Estado</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (reportData.shipments.length === 0) { %>
+            <tr>
+              <td colspan="20" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                No se registraron envíos en la fecha seleccionada (<%= reportData.fecha %>) con los filtros aplicados.
+              </td>
+            </tr>
+          <% } else { %>
+            <% reportData.shipments.forEach(s => { %>
+              <tr>
+                <td style="white-space: nowrap;"><%= s.fechaRegistro %></td>
+                <td style="white-space: nowrap;">
+                  <% if (s.fechaEntrega) { %>
+                    <span style="color: var(--success-text); font-weight: 600;">✓ <%= s.fechaEntrega %></span>
+                  <% } else { %>
+                    <span style="color: var(--text-light);">-</span>
+                  <% } %>
+                </td>
+                <td>
+                  <a href="/envios/<%= s.id %>" class="code-link">
+                    <%= s.codigoEnvio %>
+                  </a>
+                </td>
+                <td><strong><%= s.clienteCodigo %></strong></td>
+                <td style="white-space: nowrap;"><%= s.clienteNombre %></td>
+                <td><%= s.clienteDocumento %></td>
+                <td style="white-space: nowrap;"><strong><%= s.destinatarioNombre %></strong></td>
+                <td style="white-space: nowrap;"><%= s.destinatarioTelefono %></td>
+                <td><div style="max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= s.direccion %>"><%= s.direccion %></div></td>
+                <td><div style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= s.referencia || '-' %>"><%= s.referencia || '-' %></div></td>
+                <td><%= s.distrito %></td>
+                <td><%= s.provincia %></td>
+                <td><%= s.departamento %></td>
+                <td>
+                  <% if (s.linkGoogleMaps) { %>
+                    <a href="<%= s.linkGoogleMaps %>" target="_blank" rel="noopener noreferrer" style="color: #065f46; font-weight: 600; text-decoration: underline;">
+                      📍 Ver Maps &nearr;
+                    </a>
+                  <% } else { %>
+                    <span style="color: var(--text-light);">-</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (s.plusCode) { %>
+                    <code style="background: #eff6ff; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; color: #1e40af;"><%= s.plusCode %></code>
+                  <% } else { %>
+                    <span style="color: var(--text-light);">-</span>
+                  <% } %>
+                </td>
+                <td><span class="badge badge-secondary"><%= s.tipoServicio %></span></td>
+                <td style="text-align: center;"><strong><%= s.cantidadPaquetes %></strong></td>
+                <td style="text-align: right;"><%= s.peso ? `${s.peso} kg` : '-' %></td>
+                <td>
+                  <span class="badge <%= s.getStatusBadgeClass() %>">
+                    <%= s.estado %>
+                  </span>
+                </td>
+                <td><div style="max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= s.observaciones || '-' %>"><%= s.observaciones || '-' %></div></td>
+              </tr>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

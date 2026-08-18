@@ -1,0 +1,1064 @@
+<%- include('../partials/header') %>
+
+<!-- Librería SheetJS para lectura instantánea de archivos Excel en el navegador -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Registro Masivo de Envíos en Tabla</h1>
+    <p class="page-subtitle">Descarga la plantilla, sube tu Excel o pega directamente para llenar múltiples envíos</p>
+  </div>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <!-- Botón Descargar Plantilla Excel -->
+    <a href="/envios/plantilla-excel" class="btn btn-secondary" style="font-weight: 700; color: var(--secondary); border-color: var(--secondary-border); background-color: var(--secondary-light);" title="Descargar archivo Excel con formato y ejemplos oficiales">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>📥 Descargar Plantilla Excel</span>
+    </a>
+
+    <!-- Botón Subir Archivo Excel -->
+    <button type="button" class="btn btn-blue" onclick="triggerFileUpload()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span>📤 Subir Archivo Excel</span>
+    </button>
+    <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleExcelFileUpload(event)">
+
+    <!-- Botón Pegar desde Excel -->
+    <button type="button" class="btn btn-secondary" onclick="openPasteModal()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+      <span>📋 Pegar desde Excel</span>
+    </button>
+
+    <a href="/envios/nuevo" class="btn btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Envío Individual</span>
+    </a>
+    <a href="/envios" class="btn btn-secondary">
+      &larr; Volver
+    </a>
+  </div>
+</div>
+
+<!-- Datalist global con todos los distritos oficiales de Lima y Callao -->
+<datalist id="distritos-lima">
+  <% if (typeof districts !== 'undefined' && districts.length > 0) { %>
+    <% districts.forEach(d => { %>
+      <option value="<%= d %>"></option>
+    <% }); %>
+  <% } %>
+</datalist>
+
+<% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+  <div class="alert alert-error">
+    <div>
+      <strong>Se encontraron errores en el registro masivo:</strong>
+      <ul style="margin-top: 6px; padding-left: 20px;">
+        <% errors.forEach(err => { %>
+          <li><%= err %></li>
+        <% }); %>
+      </ul>
+    </div>
+  </div>
+<% } %>
+
+<!-- Banner de Advertencia Dinámica de Distritos No Estandarizados -->
+<div id="district-warning-banner" class="alert" style="display: none; background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e; margin-bottom: 20px;">
+  <div style="display: flex; align-items: flex-start; gap: 12px;">
+    <span style="font-size: 1.4rem;">⚠️</span>
+    <div>
+      <strong>Advertencia de Trazabilidad en Distritos:</strong>
+      <div id="district-warning-text" style="font-size: 0.88rem; margin-top: 4px;">
+        Se han detectado distritos que no coinciden con la lista oficial de Lima Metropolitana y Callao. Están resaltados en amarillo en la tabla para que puedas corregirlos o verificarlos antes de guardar.
+      </div>
+    </div>
+  </div>
+</div>
+
+<form action="/envios/masivo" method="POST" id="batch-form" autocomplete="off">
+  <!-- Configuración General del Lote -->
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="card-header">
+      <h2 class="card-title">1. Configuración del Lote (Cliente y Fecha de Registro)</h2>
+      <div style="display: flex; gap: 8px;">
+        <a href="/envios/plantilla-excel" class="btn btn-secondary btn-sm" style="color: #1e40af;">
+          📥 Descargar Plantilla .xlsx
+        </a>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleExcelGuide()">
+          ℹ️ Ver Columnas
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <!-- Guía colapsable de columnas para copiar y pegar desde Excel -->
+      <div id="excel-guide-box" style="display: none; background-color: #f1f5f9; padding: 14px 18px; border-radius: var(--radius); margin-bottom: 16px; font-size: 0.85rem; border-left: 4px solid var(--primary);">
+        <strong style="color: var(--primary); font-size: 0.9rem;">Orden de Columnas en la Plantilla y Excel:</strong>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 8px; font-family: monospace;">
+          <div><strong>Col 1:</strong> Destinatario (*)</div>
+          <div><strong>Col 2:</strong> Documento</div>
+          <div><strong>Col 3:</strong> Teléfono (*)</div>
+          <div><strong>Col 4:</strong> Dirección (*)</div>
+          <div><strong>Col 5:</strong> Referencia</div>
+          <div><strong>Col 6:</strong> Distrito (*)</div>
+          <div><strong>Col 7:</strong> Link Maps</div>
+          <div><strong>Col 8:</strong> Plus Code</div>
+          <div><strong>Col 9:</strong> Servicio</div>
+          <div><strong>Col 10:</strong> Paquetes</div>
+          <div><strong>Col 11:</strong> Peso (kg)</div>
+          <div><strong>Col 12:</strong> Contenido</div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <!-- Cliente Emisor -->
+        <div class="form-group col-full">
+          <label class="form-label" for="clienteId">Cliente Emisor para todos los envíos del lote <span class="required">*</span></label>
+          <select name="clienteId" id="clienteId" class="form-control" required style="font-size: 1rem; font-weight: 600;">
+            <option value="">-- Seleccione el cliente emisor --</option>
+            <% clients.forEach(c => { %>
+              <option value="<%= c.id %>" <%= String(selectedClientId) === String(c.id) ? 'selected' : '' %>>
+                <%= c.codigoCliente %> &bull; <%= c.razonSocialNombre %> (<%= c.tipoDocumento %>: <%= c.numeroDocumento %>)
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Fecha de Registro -->
+        <div class="form-group">
+          <label class="form-label" for="fechaRegistro">Fecha de Registro del Lote <span class="required">*</span></label>
+          <input 
+            type="date" 
+            name="fechaRegistro" 
+            id="fechaRegistro" 
+            class="form-control" 
+            value="<%= batchDate || today %>" 
+            required
+          >
+        </div>
+
+        <!-- Herramientas de Relleno Rápido -->
+        <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
+          <label class="form-label">Relleno Rápido de Columnas:</label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="applyDefaultDistrito()">
+              Aplicar Distrito a vacíos
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="applyDefaultServicio()">
+              Aplicar Servicio a todos
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Matriz de Envíos en Tabla -->
+  <div class="card">
+    <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h2 class="card-title">2. Matriz de Envíos a Registrar</h2>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+          Total de filas: <strong id="row-count-badge"><%= rows.length %></strong> &bull; Soporta subida de archivos <kbd style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">.xlsx / .csv</kbd> y pegado directo <kbd style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">Ctrl + V</kbd>
+        </span>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="triggerFileUpload()" style="background-color: #0284c7; border-color: #0284c7; font-weight: 600;">
+          📤 Subir Archivo Excel
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openPasteModal()" style="border-color: #059669; color: #059669; font-weight: 600;">
+          📋 Pegar desde Excel
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addRows(1)">
+          + 1 Fila
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addRows(5)">
+          + 5 Filas
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addRows(10)">
+          + 10 Filas
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body" style="padding: 0;">
+      <div class="table-responsive" style="max-height: 540px; overflow-y: auto;">
+        <table class="table" id="batch-table" style="min-width: 1700px; border-collapse: separate; border-spacing: 0;">
+          <thead style="position: sticky; top: 0; z-index: 10; background-color: #f8fafc; box-shadow: 0 1px 2px rgba(0,0,0,0.06);">
+            <tr>
+              <th style="width: 40px; text-align: center;">#</th>
+              <th style="width: 170px;">Destinatario <span class="required">*</span></th>
+              <th style="width: 100px;">Doc. Dest.</th>
+              <th style="width: 120px;">Teléfono <span class="required">*</span></th>
+              <th style="width: 200px;">Dirección de Entrega <span class="required">*</span></th>
+              <th style="width: 140px;">Referencia</th>
+              <th style="width: 170px;">Distrito <span class="required">*</span> <span title="Lista oficial de Lima con advertencia de trazabilidad" style="cursor: help;">ℹ️</span></th>
+              <th style="width: 170px;">Link Google Maps 📍</th>
+              <th style="width: 130px;">Plus Code 🌐</th>
+              <th style="width: 110px;">Servicio</th>
+              <th style="width: 70px; text-align: center;">Paq. <span class="required">*</span></th>
+              <th style="width: 75px; text-align: right;">Peso (kg)</th>
+              <th style="width: 150px;">Descripción</th>
+              <th style="width: 80px; text-align: center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="batch-tbody">
+            <% rows.forEach((r, idx) => { %>
+              <tr class="batch-row" data-index="<%= idx %>">
+                <td style="text-align: center; color: var(--text-muted); font-weight: 700;">
+                  <span class="row-num"><%= idx + 1 %></span>
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][destinatarioNombre]" 
+                    class="form-control form-control-sm cell-input input-destinatario" 
+                    placeholder="Ej. Juan Pérez" 
+                    value="<%= r.destinatarioNombre || '' %>"
+                    data-col="0"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][destinatarioDocumento]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="DNI/Doc" 
+                    value="<%= r.destinatarioDocumento || '' %>"
+                    data-col="1"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][destinatarioTelefono]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="Teléfono" 
+                    value="<%= r.destinatarioTelefono || '' %>"
+                    data-col="2"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][direccion]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="Av. / Calle / Nro" 
+                    value="<%= r.direccion || '' %>"
+                    data-col="3"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][referencia]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="Ref. entrega" 
+                    value="<%= r.referencia || '' %>"
+                    data-col="4"
+                  >
+                </td>
+                <td style="position: relative;">
+                  <div class="district-input-wrapper">
+                    <input 
+                      type="text" 
+                      name="items[<%= idx %>][distrito]" 
+                      list="distritos-lima"
+                      class="form-control form-control-sm cell-input input-distrito" 
+                      placeholder="Seleccione distrito" 
+                      value="<%= r.distrito || 'San Isidro' %>"
+                      data-col="5"
+                      oninput="validateDistrictInput(this)"
+                      onblur="validateDistrictInput(this)"
+                    >
+                    <span class="district-badge-warning" style="display: none; font-size: 0.7rem; color: #b45309; margin-top: 2px;">
+                      ⚠️ No estandarizado
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <input 
+                    type="url" 
+                    name="items[<%= idx %>][linkGoogleMaps]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="https://maps.app.goo.gl/..." 
+                    value="<%= r.linkGoogleMaps || r.link_google_maps || '' %>"
+                    data-col="6"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][plusCode]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="87G83W3M+2X" 
+                    value="<%= r.plusCode || r.plus_code || '' %>"
+                    data-col="7"
+                  >
+                </td>
+                <td>
+                  <select name="items[<%= idx %>][tipoServicio]" class="form-control form-control-sm select-servicio" data-col="8">
+                    <option value="Estándar" <%= (r.tipoServicio === 'Estándar' || !r.tipoServicio) ? 'selected' : '' %>>Estándar</option>
+                    <option value="Express" <%= r.tipoServicio === 'Express' ? 'selected' : '' %>>Express</option>
+                    <option value="Same Day" <%= r.tipoServicio === 'Same Day' ? 'selected' : '' %>>Same Day</option>
+                    <option value="Next Day" <%= r.tipoServicio === 'Next Day' ? 'selected' : '' %>>Next Day</option>
+                  </select>
+                </td>
+                <td>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    name="items[<%= idx %>][cantidadPaquetes]" 
+                    class="form-control form-control-sm cell-input" 
+                    style="text-align: center;" 
+                    value="<%= r.cantidadPaquetes || 1 %>"
+                    data-col="9"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    min="0" 
+                    name="items[<%= idx %>][peso]" 
+                    class="form-control form-control-sm cell-input" 
+                    style="text-align: right;" 
+                    value="<%= r.peso !== undefined ? r.peso : 1.0 %>"
+                    data-col="10"
+                  >
+                </td>
+                <td>
+                  <input 
+                    type="text" 
+                    name="items[<%= idx %>][descripcion]" 
+                    class="form-control form-control-sm cell-input" 
+                    placeholder="Contenido" 
+                    value="<%= r.descripcion || '' %>"
+                    data-col="11"
+                  >
+                  <!-- Campos ocultos de soporte -->
+                  <input type="hidden" name="items[<%= idx %>][provincia]" value="<%= r.provincia || 'Lima' %>">
+                  <input type="hidden" name="items[<%= idx %>][departamento]" value="<%= r.departamento || 'Lima' %>">
+                  <input type="hidden" name="items[<%= idx %>][estado]" value="<%= r.estado || 'Registrado' %>">
+                </td>
+                <td style="text-align: center; white-space: nowrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="duplicateRow(this)" title="Duplicar esta fila" style="padding: 4px 8px;">
+                    📋
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" title="Eliminar fila" style="padding: 4px 8px;">
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card-body" style="border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" onclick="addRows(1)">
+          + Agregar 1 Fila
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="addRows(5)">
+          + Agregar 5 Filas
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="clearEmptyRows()">
+          Limpiar Filas Vacías
+        </button>
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <a href="/envios" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-batch" style="padding: 10px 24px; font-size: 1rem; box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Guardar Todos los Envíos del Lote</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Modal: Asistente para Subir Archivo Excel o Pegar Datos -->
+<div id="paste-modal" style="display: none; position: fixed; inset: 0; background-color: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background-color: #ffffff; border-radius: 12px; max-width: 1000px; width: 100%; max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden;">
+    
+    <!-- Modal Header -->
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background-color: #f8fafc;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.4rem;">📊</span>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-main);">Asistente de Importación y Previsualización Excel</h3>
+      </div>
+      <button type="button" onclick="closePasteModal()" style="background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">✕</button>
+    </div>
+
+    <!-- Modal Body -->
+    <div style="padding: 20px 24px; overflow-y: auto; flex: 1;">
+      <!-- Zona de Carga de Archivo Arrastrable -->
+      <div 
+        id="drop-zone" 
+        onclick="triggerFileUpload()" 
+        ondragover="handleDragOver(event)" 
+        ondragleave="handleDragLeave(event)" 
+        ondrop="handleDrop(event)"
+        style="border: 2px dashed #94a3b8; border-radius: 8px; padding: 18px; text-align: center; background-color: #f8fafc; cursor: pointer; margin-bottom: 16px; transition: all 0.2s;"
+      >
+        <div style="font-size: 2rem; margin-bottom: 4px;">📂</div>
+        <strong style="color: var(--primary); font-size: 0.95rem;">Haz clic para seleccionar tu archivo Excel (.xlsx, .xls, .csv) o arrástralo aquí</strong>
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">
+          ¿No tienes la plantilla? <a href="/envios/plantilla-excel" onclick="event.stopPropagation();" style="color: #0284c7; font-weight: 600;">Descargar Plantilla Oficial</a>
+        </div>
+      </div>
+
+      <div style="position: relative; text-align: center; margin: 12px 0;">
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 0;">
+        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #ffffff; padding: 0 10px; font-size: 0.75rem; color: #94a3b8; font-weight: 600;">O PEGA DIRECTAMENTE EL TEXTO</span>
+      </div>
+
+      <textarea 
+        id="paste-textarea" 
+        rows="4" 
+        class="form-control" 
+        placeholder="Si prefieres, copia celdas desde tu Excel (Ctrl + C) y pégalas aquí (Ctrl + V)..."
+        style="font-family: monospace; font-size: 0.85rem; width: 100%; resize: vertical;"
+        oninput="processPastedText(this.value)"
+      ></textarea>
+
+      <!-- Previsualización de Datos Reconocidos -->
+      <div id="paste-preview-section" style="margin-top: 16px; display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">
+            Previsualización: <span id="preview-row-count" style="color: var(--primary);">0</span> envíos detectados
+          </h4>
+          <span id="preview-warning-count" style="font-size: 0.82rem; color: #b45309; font-weight: 600;"></span>
+        </div>
+
+        <div style="max-height: 240px; overflow: auto; border: 1px solid var(--border-color); border-radius: var(--radius);">
+          <table class="table" style="font-size: 0.8rem; margin: 0;">
+            <thead>
+              <tr style="background-color: #f1f5f9;">
+                <th>#</th>
+                <th>Destinatario</th>
+                <th>Doc</th>
+                <th>Teléfono</th>
+                <th>Dirección</th>
+                <th>Distrito</th>
+                <th>Link Maps</th>
+                <th>Plus Code</th>
+                <th>Servicio</th>
+                <th>Paq.</th>
+                <th>Peso</th>
+                <th>Estado Distrito</th>
+              </tr>
+            </thead>
+            <tbody id="paste-preview-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div style="padding: 14px 24px; border-top: 1px solid var(--border-color); background-color: #f8fafc; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+      <div>
+        <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <input type="checkbox" id="chk-replace-table" checked>
+          <span>Reemplazar las filas actuales de la matriz</span>
+        </label>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closePasteModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-insert-pasted" onclick="insertPastedRowsIntoTable()" disabled style="background-color: #059669; border-color: #059669;">
+          Insertar en la Tabla
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Catálogo de distritos oficiales cargados desde el servidor
+  const OFFICIAL_DISTRICTS = Array.from(document.querySelectorAll('#distritos-lima option')).map(o => o.value);
+
+  // Mapeo de alias comunes
+  const DISTRICT_SYNONYMS = {
+    'lima': 'Cercado de Lima',
+    'lima centro': 'Cercado de Lima',
+    'cercado': 'Cercado de Lima',
+    'surco': 'Santiago de Surco',
+    'santiago surco': 'Santiago de Surco',
+    'sjl': 'San Juan de Lurigancho',
+    's.j.l.': 'San Juan de Lurigancho',
+    'sjm': 'San Juan de Miraflores',
+    's.j.m.': 'San Juan de Miraflores',
+    'smp': 'San Martín de Porres',
+    's.m.p.': 'San Martín de Porres',
+    'san martin': 'San Martín de Porres',
+    'ves': 'Villa El Salvador',
+    'v.e.s.': 'Villa El Salvador',
+    'vmt': 'Villa María del Triunfo',
+    'v.m.t.': 'Villa María del Triunfo',
+    'chosica': 'Lurigancho-Chosica',
+    'lurigancho': 'Lurigancho-Chosica',
+    'magdalena': 'Magdalena del Mar',
+    'carmen de la legua': 'Carmen de la Legua Reynoso'
+  };
+
+  function removeAccents(str) {
+    return (str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function checkDistrictStatus(inputVal) {
+    if (!inputVal || !inputVal.trim()) return { isStandard: true, normalizedName: '' };
+
+    const clean = inputVal.trim().toLowerCase();
+    const cleanNoAccents = removeAccents(clean);
+
+    if (DISTRICT_SYNONYMS[cleanNoAccents]) {
+      return { isStandard: true, normalizedName: DISTRICT_SYNONYMS[cleanNoAccents] };
+    }
+
+    for (const official of OFFICIAL_DISTRICTS) {
+      const offNoAccents = removeAccents(official.toLowerCase());
+      if (cleanNoAccents === offNoAccents) {
+        return { isStandard: true, normalizedName: official };
+      }
+    }
+
+    return { isStandard: false, normalizedName: inputVal.trim() };
+  }
+
+  function validateDistrictInput(input) {
+    const val = input.value.trim();
+    const wrapper = input.closest('.district-input-wrapper') || input.parentElement;
+    const warningBadge = wrapper.querySelector('.district-badge-warning');
+
+    if (!val) {
+      input.style.borderColor = '';
+      input.style.backgroundColor = '';
+      if (warningBadge) warningBadge.style.display = 'none';
+      updateGlobalDistrictWarnings();
+      return;
+    }
+
+    const status = checkDistrictStatus(val);
+    if (!status.isStandard) {
+      // Resaltar con advertencia
+      input.style.borderColor = '#f59e0b';
+      input.style.backgroundColor = '#fffbeb';
+      if (warningBadge) warningBadge.style.display = 'block';
+    } else {
+      // Auto-corregir a nombre canónico si era sinónimo
+      if (status.normalizedName && status.normalizedName !== val && val.length <= 4) {
+        input.value = status.normalizedName;
+      }
+      input.style.borderColor = '';
+      input.style.backgroundColor = '';
+      if (warningBadge) warningBadge.style.display = 'none';
+    }
+
+    updateGlobalDistrictWarnings();
+  }
+
+  function updateGlobalDistrictWarnings() {
+    const districtInputs = document.querySelectorAll('.input-distrito');
+    let nonStandardCount = 0;
+
+    districtInputs.forEach(input => {
+      const val = input.value.trim();
+      if (val && !checkDistrictStatus(val).isStandard) {
+        nonStandardCount++;
+      }
+    });
+
+    const banner = document.getElementById('district-warning-banner');
+    const warningText = document.getElementById('district-warning-text');
+
+    if (banner && warningText) {
+      if (nonStandardCount > 0) {
+        warningText.innerHTML = `Se encontraron <strong>${nonStandardCount} envío(s)</strong> con distrito no estandarizado (resaltados en amarillo). Puedes corregirlos escribiendo o seleccionando de la lista para asegurar la trazabilidad óptima del courier.`;
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+  }
+
+  function toggleExcelGuide() {
+    const box = document.getElementById('excel-guide-box');
+    if (box) {
+      box.style.display = (box.style.display === 'none') ? 'block' : 'none';
+    }
+  }
+
+  function updateRowIndices() {
+    const rows = document.querySelectorAll('#batch-tbody tr');
+    rows.forEach((row, idx) => {
+      row.setAttribute('data-index', idx);
+      const rowNumEl = row.querySelector('.row-num');
+      if (rowNumEl) rowNumEl.textContent = idx + 1;
+
+      row.querySelectorAll('input, select').forEach(input => {
+        const name = input.getAttribute('name');
+        if (name) {
+          const updatedName = name.replace(/items\[\d+\]/, `items[${idx}]`);
+          input.setAttribute('name', updatedName);
+        }
+      });
+    });
+
+    const badge = document.getElementById('row-count-badge');
+    if (badge) badge.textContent = rows.length;
+
+    // Revalidar distritos
+    document.querySelectorAll('.input-distrito').forEach(inp => validateDistrictInput(inp));
+  }
+
+  function addRows(count = 1) {
+    const tbody = document.getElementById('batch-tbody');
+    const defaultDistrito = document.querySelector('.input-distrito')?.value || 'San Isidro';
+    const defaultServicio = document.querySelector('.select-servicio')?.value || 'Estándar';
+
+    for (let i = 0; i < count; i++) {
+      const currentIdx = tbody.querySelectorAll('tr').length;
+      const tr = document.createElement('tr');
+      tr.className = 'batch-row';
+      tr.setAttribute('data-index', currentIdx);
+
+      tr.innerHTML = `
+        <td style="text-align: center; color: var(--text-muted); font-weight: 700;">
+          <span class="row-num">${currentIdx + 1}</span>
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][destinatarioNombre]" class="form-control form-control-sm cell-input input-destinatario" placeholder="Ej. Juan Pérez" data-col="0">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][destinatarioDocumento]" class="form-control form-control-sm cell-input" placeholder="DNI/Doc" data-col="1">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][destinatarioTelefono]" class="form-control form-control-sm cell-input" placeholder="Teléfono" data-col="2">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][direccion]" class="form-control form-control-sm cell-input" placeholder="Av. / Calle / Nro" data-col="3">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][referencia]" class="form-control form-control-sm cell-input" placeholder="Ref. entrega" data-col="4">
+        </td>
+        <td style="position: relative;">
+          <div class="district-input-wrapper">
+            <input type="text" name="items[${currentIdx}][distrito]" list="distritos-lima" class="form-control form-control-sm cell-input input-distrito" placeholder="Distrito" value="${defaultDistrito}" data-col="5" oninput="validateDistrictInput(this)" onblur="validateDistrictInput(this)">
+            <span class="district-badge-warning" style="display: none; font-size: 0.7rem; color: #b45309; margin-top: 2px;">⚠️ No estandarizado</span>
+          </div>
+        </td>
+        <td>
+          <input type="url" name="items[${currentIdx}][linkGoogleMaps]" class="form-control form-control-sm cell-input" placeholder="https://maps.app.goo.gl/..." data-col="6">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][plusCode]" class="form-control form-control-sm cell-input" placeholder="87G83W3M+2X" data-col="7">
+        </td>
+        <td>
+          <select name="items[${currentIdx}][tipoServicio]" class="form-control form-control-sm select-servicio" data-col="8">
+            <option value="Estándar" ${defaultServicio === 'Estándar' ? 'selected' : ''}>Estándar</option>
+            <option value="Express" ${defaultServicio === 'Express' ? 'selected' : ''}>Express</option>
+            <option value="Same Day" ${defaultServicio === 'Same Day' ? 'selected' : ''}>Same Day</option>
+            <option value="Next Day" ${defaultServicio === 'Next Day' ? 'selected' : ''}>Next Day</option>
+          </select>
+        </td>
+        <td>
+          <input type="number" min="1" name="items[${currentIdx}][cantidadPaquetes]" class="form-control form-control-sm cell-input" style="text-align: center;" value="1" data-col="9">
+        </td>
+        <td>
+          <input type="number" step="0.1" min="0" name="items[${currentIdx}][peso]" class="form-control form-control-sm cell-input" style="text-align: right;" value="1.0" data-col="10">
+        </td>
+        <td>
+          <input type="text" name="items[${currentIdx}][descripcion]" class="form-control form-control-sm cell-input" placeholder="Contenido" data-col="11">
+          <input type="hidden" name="items[${currentIdx}][provincia]" value="Lima">
+          <input type="hidden" name="items[${currentIdx}][departamento]" value="Lima">
+          <input type="hidden" name="items[${currentIdx}][estado]" value="Registrado">
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="duplicateRow(this)" title="Duplicar esta fila" style="padding: 4px 8px;">📋</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" title="Eliminar fila" style="padding: 4px 8px;">✕</button>
+        </td>
+      `;
+
+      tbody.appendChild(tr);
+    }
+
+    updateRowIndices();
+  }
+
+  function removeRow(btn) {
+    const tbody = document.getElementById('batch-tbody');
+    if (tbody.querySelectorAll('tr').length <= 1) {
+      alert('Debe mantener al menos una fila en la tabla.');
+      return;
+    }
+    const row = btn.closest('tr');
+    row.remove();
+    updateRowIndices();
+  }
+
+  function duplicateRow(btn) {
+    const row = btn.closest('tr');
+    const clone = row.cloneNode(true);
+    row.parentNode.insertBefore(clone, row.nextSibling);
+    updateRowIndices();
+  }
+
+  function clearEmptyRows() {
+    const rows = document.querySelectorAll('#batch-tbody tr');
+    let removed = 0;
+    rows.forEach(row => {
+      const dest = row.querySelector('.input-destinatario')?.value.trim();
+      const dir = row.querySelector('input[name*="[direccion]"]')?.value.trim();
+      if (!dest && !dir && rows.length - removed > 1) {
+        row.remove();
+        removed++;
+      }
+    });
+    updateRowIndices();
+  }
+
+  function applyDefaultDistrito() {
+    const firstDist = document.querySelector('.input-distrito')?.value.trim();
+    if (!firstDist) {
+      alert('Escribe o selecciona un distrito en la primera fila para aplicarlo a las filas vacías.');
+      return;
+    }
+    document.querySelectorAll('.input-distrito').forEach(input => {
+      if (!input.value.trim()) {
+        input.value = firstDist;
+        validateDistrictInput(input);
+      }
+    });
+  }
+
+  function applyDefaultServicio() {
+    const firstServ = document.querySelector('.select-servicio')?.value;
+    if (firstServ) {
+      document.querySelectorAll('.select-servicio').forEach(sel => {
+        sel.value = firstServ;
+      });
+    }
+  }
+
+  // --- SUBIDA Y LECTURA DE ARCHIVOS EXCEL (.xlsx, .xls, .csv) ---
+  function triggerFileUpload() {
+    document.getElementById('excel-file-input').click();
+  }
+
+  function handleExcelFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    readExcelFile(file);
+    event.target.value = ''; // Reset
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').style.borderColor = '#0284c7';
+    document.getElementById('drop-zone').style.backgroundColor = '#eff6ff';
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').style.borderColor = '#94a3b8';
+    document.getElementById('drop-zone').style.backgroundColor = '#f8fafc';
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDragLeave(e);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      readExcelFile(e.dataTransfer.files[0]);
+    }
+  }
+
+  function readExcelFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Obtener la primera hoja de cálculo
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convertir a matriz de arreglos
+        const rowsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+        
+        if (!rowsArray || rowsArray.length === 0) {
+          alert('El archivo seleccionado está vacío.');
+          return;
+        }
+
+        // Detectar si la primera fila es encabezado
+        const firstRow = rowsArray[0].map(c => String(c).toLowerCase().trim());
+        const isHeader = firstRow.some(c => 
+          c.includes('destinatario') || c.includes('teléfono') || c.includes('telefono') || c.includes('dirección') || c.includes('direccion')
+        );
+
+        const dataRows = isHeader ? rowsArray.slice(1) : rowsArray;
+        
+        openPasteModal();
+        renderPreviewFromRowsArray(dataRows);
+
+      } catch (err) {
+        console.error('Error al leer Excel:', err);
+        alert('Ocurrió un error al procesar el archivo Excel. Asegúrate de que sea un formato .xlsx, .xls o .csv válido.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // --- PEGADO DIRECTO EN LA TABLA (Ctrl+V en cualquier celda) ---
+  document.getElementById('batch-table').addEventListener('paste', function(e) {
+    const activeEl = document.activeElement;
+    if (!activeEl || !activeEl.classList.contains('cell-input')) return;
+
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const startRow = activeEl.closest('tr');
+    const startRowIdx = parseInt(startRow.getAttribute('data-index') || '0', 10);
+    const startColIdx = parseInt(activeEl.getAttribute('data-col') || '0', 10);
+
+    const parsedRows = parseDelimitedText(text);
+    if (parsedRows.length === 0) return;
+
+    // Asegurar que existan suficientes filas en la tabla
+    const tbody = document.getElementById('batch-tbody');
+    const neededTotalRows = startRowIdx + parsedRows.length;
+    const currentRowsCount = tbody.querySelectorAll('tr').length;
+
+    if (neededTotalRows > currentRowsCount) {
+      addRows(neededTotalRows - currentRowsCount);
+    }
+
+    const allRows = document.querySelectorAll('#batch-tbody tr');
+
+    parsedRows.forEach((rowData, rOffset) => {
+      const targetRow = allRows[startRowIdx + rOffset];
+      if (!targetRow) return;
+
+      rowData.forEach((cellVal, cOffset) => {
+        const colIndex = startColIdx + cOffset;
+        const targetInput = targetRow.querySelector(`[data-col="${colIndex}"]`);
+        if (targetInput) {
+          if (targetInput.tagName === 'SELECT') {
+            const cleanVal = cellVal.trim().toLowerCase();
+            for (const opt of targetInput.options) {
+              if (opt.value.toLowerCase() === cleanVal) {
+                targetInput.value = opt.value;
+                break;
+              }
+            }
+          } else {
+            targetInput.value = cellVal.trim();
+            if (targetInput.classList.contains('input-distrito')) {
+              validateDistrictInput(targetInput);
+            }
+          }
+        }
+      });
+    });
+
+    updateRowIndices();
+  });
+
+  // --- MODAL DE PEGADO / SUBIDA ASISTIDA ---
+  let parsedModalData = [];
+
+  function openPasteModal() {
+    const modal = document.getElementById('paste-modal');
+    const textarea = document.getElementById('paste-textarea');
+    modal.style.display = 'flex';
+    textarea.value = '';
+    document.getElementById('paste-preview-section').style.display = 'none';
+    document.getElementById('btn-insert-pasted').disabled = true;
+    setTimeout(() => textarea.focus(), 50);
+  }
+
+  function closePasteModal() {
+    document.getElementById('paste-modal').style.display = 'none';
+  }
+
+  function parseDelimitedText(rawText) {
+    if (!rawText || !rawText.trim()) return [];
+
+    const lines = rawText.split(/\r?\n/).filter(l => l.trim().length > 0);
+    return lines.map(line => {
+      if (line.includes('\t')) {
+        return line.split('\t');
+      } else if (line.includes(';') && !line.includes('\t')) {
+        return line.split(';');
+      } else {
+        return line.split(',');
+      }
+    });
+  }
+
+  function processPastedText(text) {
+    const rows = parseDelimitedText(text);
+    renderPreviewFromRowsArray(rows);
+  }
+
+  function renderPreviewFromRowsArray(rows) {
+    parsedModalData = [];
+
+    const previewSection = document.getElementById('paste-preview-section');
+    const previewTbody = document.getElementById('paste-preview-tbody');
+    const btnInsert = document.getElementById('btn-insert-pasted');
+    const rowCountEl = document.getElementById('preview-row-count');
+    const warnCountEl = document.getElementById('preview-warning-count');
+
+    // Filtrar filas completamente vacías
+    const validRows = rows.filter(r => r && r.some(cell => String(cell).trim().length > 0));
+
+    if (validRows.length === 0) {
+      previewSection.style.display = 'none';
+      btnInsert.disabled = true;
+      return;
+    }
+
+    let nonStandardCount = 0;
+    let html = '';
+
+    validRows.forEach((r, idx) => {
+      const destinatario = String(r[0] || '').trim();
+      const doc = String(r[1] || '').trim();
+      const telefono = String(r[2] || '').trim();
+      const direccion = String(r[3] || '').trim();
+      const referencia = String(r[4] || '').trim();
+      const rawDistrito = String(r[5] || '').trim();
+      const linkMaps = String(r[6] || '').trim();
+      const plusCode = String(r[7] || '').trim();
+      const rawServicio = String(r[8] || '').trim();
+      const paquetes = parseInt(r[9] || '1', 10) || 1;
+      const peso = parseFloat(r[10] || '1.0') || 1.0;
+      const descripcion = String(r[11] || '').trim();
+
+      const districtStatus = checkDistrictStatus(rawDistrito);
+      if (rawDistrito && !districtStatus.isStandard) {
+        nonStandardCount++;
+      }
+
+      parsedModalData.push({
+        destinatarioNombre: destinatario,
+        destinatarioDocumento: doc,
+        destinatarioTelefono: telefono,
+        direccion: direccion,
+        referencia: referencia,
+        distrito: districtStatus.normalizedName || rawDistrito || 'San Isidro',
+        linkGoogleMaps: linkMaps,
+        plusCode: plusCode,
+        tipoServicio: rawServicio || 'Estándar',
+        cantidadPaquetes: paquetes,
+        peso: peso,
+        descripcion: descripcion,
+        isStandardDistrict: districtStatus.isStandard
+      });
+
+      html += `
+        <tr style="${!districtStatus.isStandard ? 'background-color: #fffbeb;' : ''}">
+          <td>${idx + 1}</td>
+          <td><strong>${destinatario || '<span style="color:red;">(Vacío)</span>'}</strong></td>
+          <td>${doc || '-'}</td>
+          <td>${telefono || '-'}</td>
+          <td>${direccion || '-'}</td>
+          <td>
+            <strong>${districtStatus.normalizedName || rawDistrito || '-'}</strong>
+          </td>
+          <td><div style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${linkMaps || '-'}</div></td>
+          <td>${plusCode || '-'}</td>
+          <td>${rawServicio || 'Estándar'}</td>
+          <td>${paquetes}</td>
+          <td>${peso} kg</td>
+          <td>
+            ${districtStatus.isStandard 
+              ? '<span class="badge badge-success" style="font-size:0.75rem;">✓ Oficial</span>' 
+              : '<span class="badge badge-warning" style="font-size:0.75rem;">⚠️ No estandarizado</span>'}
+          </td>
+        </tr>
+      `;
+    });
+
+    previewTbody.innerHTML = html;
+    rowCountEl.textContent = parsedModalData.length;
+    warnCountEl.textContent = nonStandardCount > 0 ? `⚠️ ${nonStandardCount} distritos no estandarizados` : '✓ Todos los distritos son estándar';
+    previewSection.style.display = 'block';
+    btnInsert.disabled = false;
+  }
+
+  function insertPastedRowsIntoTable() {
+    if (parsedModalData.length === 0) return;
+
+    const replaceTable = document.getElementById('chk-replace-table').checked;
+    const tbody = document.getElementById('batch-tbody');
+
+    if (replaceTable) {
+      tbody.innerHTML = '';
+    }
+
+    const initialLength = tbody.querySelectorAll('tr').length;
+    addRows(parsedModalData.length);
+
+    const allRows = document.querySelectorAll('#batch-tbody tr');
+
+    parsedModalData.forEach((item, idx) => {
+      const row = allRows[initialLength + idx];
+      if (!row) return;
+
+      const setVal = (sel, val) => {
+        const el = row.querySelector(sel);
+        if (el) el.value = val;
+      };
+
+      setVal('.input-destinatario', item.destinatarioNombre);
+      setVal('input[name*="[destinatarioDocumento]"]', item.destinatarioDocumento);
+      setVal('input[name*="[destinatarioTelefono]"]', item.destinatarioTelefono);
+      setVal('input[name*="[direccion]"]', item.direccion);
+      setVal('input[name*="[referencia]"]', item.referencia);
+      
+      const distInput = row.querySelector('.input-distrito');
+      if (distInput) {
+        distInput.value = item.distrito;
+        validateDistrictInput(distInput);
+      }
+
+      setVal('input[name*="[linkGoogleMaps]"]', item.linkGoogleMaps);
+      setVal('input[name*="[plusCode]"]', item.plusCode);
+
+      const servSelect = row.querySelector('.select-servicio');
+      if (servSelect && item.tipoServicio) {
+        for (const opt of servSelect.options) {
+          if (opt.value.toLowerCase() === item.tipoServicio.toLowerCase()) {
+            servSelect.value = opt.value;
+            break;
+          }
+        }
+      }
+
+      setVal('input[name*="[cantidadPaquetes]"]', item.cantidadPaquetes);
+      setVal('input[name*="[peso]"]', item.peso);
+      setVal('input[name*="[descripcion]"]', item.descripcion);
+    });
+
+    updateRowIndices();
+    closePasteModal();
+  }
+
+  // Inicialización en carga de página
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.input-distrito').forEach(inp => validateDistrictInput(inp));
+  });
+</script>
+
+<%- include('../partials/footer') %>

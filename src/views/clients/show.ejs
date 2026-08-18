@@ -1,0 +1,83 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Ficha del Cliente: <%= client.codigoCliente %></h1>
+    <p class="page-subtitle"><%= client.razonSocialNombre %></p>
+  </div>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <a href="/envios/masivo?clienteId=<%= client.id %>" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 600;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      <span>Envío Masivo (Tabla)</span>
+    </a>
+    <a href="/envios/nuevo?clienteId=<%= client.id %>" class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Nuevo Envío</span>
+    </a>
+    <a href="/clientes/<%= client.id %>/editar" class="btn btn-secondary">
+      Editar
+    </a>
+    <a href="/clientes" class="btn btn-secondary">
+      &larr; Volver
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Información General</h2>
+    <span class="badge <%= client.estado === 'Activo' ? 'badge-success' : 'badge-danger' %>" style="font-size: 0.9rem; padding: 6px 14px;">
+      <%= client.estado %>
+    </span>
+  </div>
+
+  <div class="card-body">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+      <div>
+        <label class="stat-label">Código de Cliente</label>
+        <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary);"><%= client.codigoCliente %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Tipo y Número de Documento</label>
+        <div style="font-size: 1.1rem; font-weight: 600;"><%= client.tipoDocumento %>: <%= client.numeroDocumento %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Persona de Contacto</label>
+        <div style="font-size: 1.05rem;"><%= client.contacto || 'No especificado' %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Teléfono / Celular</label>
+        <div style="font-size: 1.05rem; font-weight: 600;"><%= client.telefono %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Correo Electrónico</label>
+        <div style="font-size: 1.05rem;"><%= client.correo || 'No especificado' %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Fecha de Registro</label>
+        <div style="font-size: 1.05rem;"><%= client.fechaRegistro %></div>
+      </div>
+
+      <div style="grid-column: 1 / -1;">
+        <label class="stat-label">Dirección Fiscal / Despacho</label>
+        <div style="font-size: 1.1rem;"><%= client.direccion %></div>
+        <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;">
+          Distrito: <strong><%= client.distrito %></strong> &bull; Provincia: <strong><%= client.provincia %></strong> &bull; Departamento: <strong><%= client.departamento %></strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloque de Auditoría -->
+    <div class="audit-box" style="margin-top: 32px;">
+      <div><strong>Creado el:</strong> <%= client.fechaCreacion || client.fechaRegistro %> &bull; <strong>Por:</strong> <%= client.creadoPor || 'Sistema' %></div>
+      <div><strong>Última modificación:</strong> <%= client.fechaModificacion || 'Sin modificaciones' %> &bull; <strong>Por:</strong> <%= client.modificadoPor || '-' %></div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

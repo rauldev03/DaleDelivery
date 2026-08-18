@@ -1,0 +1,31 @@
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="system-tag">Dale Delivery &bull; Operaciones</span>
+    <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 500;" id="live-clock"></span>
+  </div>
+
+  <div class="topbar-right">
+    <div class="user-profile">
+      <div class="user-avatar">
+        <%= (currentUser && currentUser.nombre) ? currentUser.nombre.charAt(0).toUpperCase() : 'A' %>
+      </div>
+      <div class="user-info">
+        <span class="user-name"><%= (currentUser && currentUser.nombre) ? currentUser.nombre : 'Administrador' %></span>
+        <span class="user-role">@<%= (currentUser && currentUser.username) ? currentUser.username : 'admin' %> (Operador)</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  function updateClock() {
+    const clockEl = document.getElementById('live-clock');
+    if (clockEl) {
+      const now = new Date();
+      const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      clockEl.textContent = now.toLocaleDateString('es-PE', options);
+    }
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+</script>

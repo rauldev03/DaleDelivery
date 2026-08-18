@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>500 - Error del Servidor</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 20px;">
+  <div class="card" style="max-width: 500px; padding: 40px;">
+    <h1 style="font-size: 4rem; color: var(--danger); margin-bottom: 10px;">500</h1>
+    <h2 style="margin-bottom: 12px;">Error Interno del Servidor</h2>
+    <p style="color: var(--text-muted); margin-bottom: 24px;"><%= typeof message !== 'undefined' ? message : 'Ocurrió un error inesperado.' %></p>
+    <a href="/dashboard" class="btn btn-primary">Volver al Inicio</a>
+  </div>
+</body>
+</html>

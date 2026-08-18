@@ -1,0 +1,358 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Registrar Nuevo Envío</h1>
+    <p class="page-subtitle">Generación de orden de despacho para clientes de la red courier</p>
+  </div>
+  <div>
+    <a href="/envios" class="btn btn-secondary">
+      &larr; Volver al Listado
+    </a>
+  </div>
+</div>
+
+<% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+  <div class="alert alert-error">
+    <div>
+      <strong>Por favor corrija los siguientes errores antes de continuar:</strong>
+      <ul style="margin-top: 6px; padding-left: 20px;">
+        <% errors.forEach(err => { %>
+          <li><%= err %></li>
+        <% }); %>
+      </ul>
+    </div>
+  </div>
+<% } %>
+
+<form action="/envios/nuevo" method="POST" autocomplete="off">
+  <!-- Sección 1: Datos Principales -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">1. Datos Principales del Envío</h2>
+      <div>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Código estimado:</span>
+        <span class="badge badge-info" style="font-size: 0.95rem; padding: 6px 12px;"><%= nextCode %></span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- Cliente -->
+        <div class="form-group col-full">
+          <label class="form-label" for="clienteId">Cliente Emisor <span class="required">*</span></label>
+          <select name="clienteId" id="clienteId" class="form-control" required>
+            <option value="">-- Seleccione un cliente activo --</option>
+            <% clients.forEach(c => { %>
+              <option value="<%= c.id %>" <%= String(shipment.clienteId) === String(c.id) ? 'selected' : '' %>>
+                <%= c.codigoCliente %> &bull; <%= c.razonSocialNombre %> (<%= c.tipoDocumento %>: <%= c.numeroDocumento %>)
+              </option>
+            <% }); %>
+          </select>
+          <% if (clients.length === 0) { %>
+            <div style="font-size: 0.82rem; color: var(--danger); margin-top: 4px;">
+              No hay clientes activos disponibles. Primero debe <a href="/clientes/nuevo" style="color: var(--primary);">registrar un cliente</a>.
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Fecha de Registro -->
+        <div class="form-group">
+          <label class="form-label" for="fechaRegistro">Fecha de Registro <span class="required">*</span></label>
+          <input 
+            type="date" 
+            name="fechaRegistro" 
+            id="fechaRegistro" 
+            class="form-control" 
+            value="<%= shipment.fechaRegistro || today %>" 
+            required
+          >
+        </div>
+
+        <!-- Tipo de Servicio -->
+        <div class="form-group">
+          <label class="form-label" for="tipoServicio">Tipo de Servicio <span class="required">*</span></label>
+          <select name="tipoServicio" id="tipoServicio" class="form-control" required>
+            <option value="Estándar" <%= (shipment.tipoServicio === 'Estándar' || !shipment.tipoServicio) ? 'selected' : '' %>>Estándar (24 a 48 hrs)</option>
+            <option value="Express" <%= shipment.tipoServicio === 'Express' ? 'selected' : '' %>>Express (Mismo Día / Prioritario)</option>
+            <option value="Same Day" <%= shipment.tipoServicio === 'Same Day' ? 'selected' : '' %>>Same Day</option>
+            <option value="Next Day" <%= shipment.tipoServicio === 'Next Day' ? 'selected' : '' %>>Next Day</option>
+          </select>
+        </div>
+
+        <!-- Estado Inicial -->
+        <div class="form-group">
+          <label class="form-label" for="estado">Estado Inicial</label>
+          <select name="estado" id="estado" class="form-control">
+            <option value="Registrado" <%= (shipment.estado === 'Registrado' || !shipment.estado) ? 'selected' : '' %>>Registrado</option>
+            <option value="En proceso" <%= shipment.estado === 'En proceso' ? 'selected' : '' %>>En proceso</option>
+            <option value="Entregado" <%= shipment.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+          </select>
+        </div>
+
+        <!-- Fecha de Entrega (Opcional) -->
+        <div class="form-group">
+          <label class="form-label" for="fechaEntrega">Fecha de Entrega (Opcional)</label>
+          <input 
+            type="date" 
+            name="fechaEntrega" 
+            id="fechaEntrega" 
+            class="form-control" 
+            value="<%= shipment.fechaEntrega || '' %>"
+            placeholder="YYYY-MM-DD"
+          >
+          <span style="font-size: 0.76rem; color: var(--text-muted);">Si el estado es "Entregado", se registrará automáticamente si no se especifica.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 2: Datos del Destinatario -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">2. Datos del Destinatario</h2>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- Nombre del Destinatario -->
+        <div class="form-group col-full">
+          <label class="form-label" for="destinatarioNombre">Nombre Completo del Destinatario <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="destinatarioNombre" 
+            id="destinatarioNombre" 
+            class="form-control" 
+            placeholder="Ej. Roberto Carlos Alarcón" 
+            value="<%= shipment.destinatarioNombre || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Documento Opcional -->
+        <div class="form-group">
+          <label class="form-label" for="destinatarioDocumento">DNI / Documento del Destinatario (Opcional)</label>
+          <input 
+            type="text" 
+            name="destinatarioDocumento" 
+            id="destinatarioDocumento" 
+            class="form-control" 
+            placeholder="Ej. 45678901" 
+            value="<%= shipment.destinatarioDocumento || '' %>"
+          >
+        </div>
+
+        <!-- Teléfono -->
+        <div class="form-group">
+          <label class="form-label" for="destinatarioTelefono">Teléfono / Celular del Destinatario <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="destinatarioTelefono" 
+            id="destinatarioTelefono" 
+            class="form-control" 
+            placeholder="Ej. 981234567" 
+            value="<%= shipment.destinatarioTelefono || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Correo Electrónico -->
+        <div class="form-group">
+          <label class="form-label" for="destinatarioCorreo">Correo del Destinatario (Opcional)</label>
+          <input 
+            type="email" 
+            name="destinatarioCorreo" 
+            id="destinatarioCorreo" 
+            class="form-control" 
+            placeholder="destinatario@correo.com" 
+            value="<%= shipment.destinatarioCorreo || '' %>"
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 3: Dirección de Entrega -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">3. Dirección de Entrega</h2>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- Dirección -->
+        <div class="form-group col-full">
+          <label class="form-label" for="direccion">Dirección de Entrega <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="direccion" 
+            id="direccion" 
+            class="form-control" 
+            placeholder="Ej. Av. Primavera 1050, Dpto. 301" 
+            value="<%= shipment.direccion || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Referencia -->
+        <div class="form-group col-full">
+          <label class="form-label" for="referencia">Referencia de Entrega</label>
+          <input 
+            type="text" 
+            name="referencia" 
+            id="referencia" 
+            class="form-control" 
+            placeholder="Ej. A dos cuadras del óvalo Higuereta, portón verde" 
+            value="<%= shipment.referencia || '' %>"
+          >
+        </div>
+
+        <!-- Distrito -->
+        <div class="form-group">
+          <label class="form-label" for="distrito">Distrito <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="distrito" 
+            id="distrito" 
+            list="distritos-lima"
+            class="form-control" 
+            placeholder="Seleccione o escriba distrito (Ej. Miraflores)" 
+            value="<%= shipment.distrito || 'San Isidro' %>" 
+            required
+          >
+          <datalist id="distritos-lima">
+            <% if (typeof districts !== 'undefined' && districts.length > 0) { %>
+              <% districts.forEach(d => { %>
+                <option value="<%= d %>"></option>
+              <% }); %>
+            <% } %>
+          </datalist>
+        </div>
+
+        <!-- Provincia -->
+        <div class="form-group">
+          <label class="form-label" for="provincia">Provincia <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="provincia" 
+            id="provincia" 
+            class="form-control" 
+            placeholder="Ej. Lima" 
+            value="<%= shipment.provincia || 'Lima' %>" 
+            required
+          >
+        </div>
+
+        <!-- Departamento -->
+        <div class="form-group">
+          <label class="form-label" for="departamento">Departamento <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="departamento" 
+            id="departamento" 
+            class="form-control" 
+            placeholder="Ej. Lima" 
+            value="<%= shipment.departamento || 'Lima' %>" 
+            required
+          >
+        </div>
+
+        <!-- Link de Google Maps -->
+        <div class="form-group">
+          <label class="form-label" for="linkGoogleMaps">Link de Google Maps (Opcional) 📍</label>
+          <input 
+            type="url" 
+            name="linkGoogleMaps" 
+            id="linkGoogleMaps" 
+            class="form-control" 
+            placeholder="https://maps.app.goo.gl/..." 
+            value="<%= shipment.linkGoogleMaps || shipment.link_google_maps || '' %>"
+          >
+        </div>
+
+        <!-- Código Plus de Maps -->
+        <div class="form-group">
+          <label class="form-label" for="plusCode">Código Plus de Maps (Opcional) 🌐</label>
+          <input 
+            type="text" 
+            name="plusCode" 
+            id="plusCode" 
+            class="form-control" 
+            placeholder="Ej. 87G83W3M+2X" 
+            value="<%= shipment.plusCode || shipment.plus_code || '' %>"
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección 4: Datos de Paquetería -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">4. Datos del Paquete y Observaciones</h2>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- Cantidad de Paquetes -->
+        <div class="form-group">
+          <label class="form-label" for="cantidadPaquetes">Cantidad de Paquetes <span class="required">*</span></label>
+          <input 
+            type="number" 
+            name="cantidadPaquetes" 
+            id="cantidadPaquetes" 
+            class="form-control" 
+            min="1" 
+            value="<%= shipment.cantidadPaquetes || 1 %>" 
+            required
+          >
+        </div>
+
+        <!-- Peso Opcional -->
+        <div class="form-group">
+          <label class="form-label" for="peso">Peso en Kg (Opcional)</label>
+          <input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            name="peso" 
+            id="peso" 
+            class="form-control" 
+            placeholder="Ej. 2.5" 
+            value="<%= shipment.peso !== undefined ? shipment.peso : '' %>"
+          >
+        </div>
+
+        <!-- Descripción -->
+        <div class="form-group col-full">
+          <label class="form-label" for="descripcion">Descripción del Contenido</label>
+          <textarea 
+            name="descripcion" 
+            id="descripcion" 
+            class="form-control" 
+            rows="2" 
+            placeholder="Ej. Ropa y accesorios para caballero"
+          ><%= shipment.descripcion || '' %></textarea>
+        </div>
+
+        <!-- Observaciones -->
+        <div class="form-group col-full">
+          <label class="form-label" for="observaciones">Observaciones Operativas</label>
+          <textarea 
+            name="observaciones" 
+            id="observaciones" 
+            class="form-control" 
+            rows="2" 
+            placeholder="Ej. Llamar 15 minutos antes de entregar. Recibe conserje si no responde."
+          ><%= shipment.observaciones || '' %></textarea>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a href="/envios" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary" id="btn-save-shipment">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Registrar Envío</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

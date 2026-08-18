@@ -1,0 +1,196 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Guía de Envío: <%= shipment.codigoEnvio %></h1>
+    <p class="page-subtitle">
+      Registrado el: <strong><%= shipment.fechaRegistro %></strong>
+      <% if (shipment.fechaEntrega) { %>
+        &bull; Fecha de Entrega: <strong style="color: var(--success-text);">✓ <%= shipment.fechaEntrega %></strong>
+      <% } %>
+      &bull; Servicio: <%= shipment.tipoServicio %>
+    </p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="/envios/<%= shipment.id %>/editar" class="btn btn-secondary">
+      Editar Envío
+    </a>
+    <a href="/envios" class="btn btn-secondary">
+      &larr; Volver al Listado
+    </a>
+  </div>
+</div>
+
+<!-- Barra de Cambio Rápido de Estado -->
+<div class="card" style="border-left: 4px solid var(--primary); background-color: #ffffff;">
+  <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span style="font-weight: 600; color: var(--text-muted);">Estado Actual:</span>
+      <span class="badge <%= shipment.getStatusBadgeClass() %>" style="font-size: 1rem; padding: 6px 14px;">
+        <%= shipment.estado %>
+      </span>
+      <% if (shipment.fechaEntrega) { %>
+        <span style="font-size: 0.85rem; color: var(--success-text); font-weight: 600;">(Entregado el <%= shipment.fechaEntrega %>)</span>
+      <% } %>
+    </div>
+
+    <form action="/envios/<%= shipment.id %>/estado" method="POST" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <label for="estado-select" style="font-size: 0.88rem; font-weight: 600;">Cambiar estado:</label>
+      <select name="estado" id="estado-select" class="form-control" style="width: 160px;" onchange="toggleFechaEntrega(this.value)">
+        <option value="Registrado" <%= shipment.estado === 'Registrado' ? 'selected' : '' %>>Registrado</option>
+        <option value="En proceso" <%= shipment.estado === 'En proceso' ? 'selected' : '' %>>En proceso</option>
+        <option value="Entregado" <%= shipment.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+        <option value="Cancelado" <%= shipment.estado === 'Cancelado' ? 'selected' : '' %>>Cancelado</option>
+      </select>
+
+      <input 
+        type="date" 
+        name="fechaEntrega" 
+        id="quick-fecha-entrega" 
+        class="form-control" 
+        style="width: 150px; display: <%= shipment.estado === 'Entregado' ? 'inline-block' : 'none' %>;" 
+        value="<%= shipment.fechaEntrega || new Date().toISOString().split('T')[0] %>"
+        title="Fecha de Entrega"
+      >
+
+      <button type="submit" class="btn btn-primary btn-sm">Actualizar</button>
+    </form>
+
+    <script>
+      function toggleFechaEntrega(status) {
+        const input = document.getElementById('quick-fecha-entrega');
+        if (input) {
+          input.style.display = (status === 'Entregado') ? 'inline-block' : 'none';
+        }
+      }
+    </script>
+  </div>
+</div>
+
+<div class="form-grid">
+  <!-- Tarjeta: Datos del Cliente Emisor -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Cliente Emisor</h2>
+      <a href="/clientes/<%= shipment.clienteId %>" style="font-size: 0.85rem; color: var(--primary); text-decoration: none;">Ver Ficha Cliente &rarr;</a>
+    </div>
+    <div class="card-body">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label class="stat-label">Código de Cliente</label>
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);"><%= shipment.clienteCodigo %></div>
+        </div>
+        <div>
+          <label class="stat-label">Razón Social / Nombre</label>
+          <div style="font-size: 1.05rem; font-weight: 600;"><%= shipment.clienteNombre %></div>
+        </div>
+        <div>
+          <label class="stat-label">Documento</label>
+          <div><%= shipment.clienteDocumento %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tarjeta: Datos del Destinatario -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">Destinatario</h2>
+    </div>
+    <div class="card-body">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div>
+          <label class="stat-label">Nombre del Destinatario</label>
+          <div style="font-size: 1.1rem; font-weight: 700;"><%= shipment.destinatarioNombre %></div>
+        </div>
+        <div>
+          <label class="stat-label">Teléfono / Celular</label>
+          <div style="font-size: 1.05rem; font-weight: 600;"><%= shipment.destinatarioTelefono %></div>
+        </div>
+        <div>
+          <label class="stat-label">Documento / Correo</label>
+          <div><%= shipment.destinatarioDocumento ? `Doc: ${shipment.destinatarioDocumento}` : 'Sin documento' %> &bull; <%= shipment.destinatarioCorreo || 'Sin correo' %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tarjeta: Dirección de Entrega y Paquetería -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Dirección de Entrega y Detalles del Paquete</h2>
+  </div>
+  <div class="card-body">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+      <div style="grid-column: 1 / -1;">
+        <label class="stat-label">Dirección Completa de Destino</label>
+        <div style="font-size: 1.15rem; font-weight: 600; color: var(--text-main);"><%= shipment.direccion %></div>
+        <% if (shipment.referencia) { %>
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;">
+            📍 Referencia: <em><%= shipment.referencia %></em>
+          </div>
+        <% } %>
+        <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;">
+          Distrito: <strong><%= shipment.distrito %></strong> &bull; Provincia: <strong><%= shipment.provincia %></strong> &bull; Departamento: <strong><%= shipment.departamento %></strong>
+        </div>
+
+        <% if (shipment.linkGoogleMaps || shipment.plusCode) { %>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+            <% if (shipment.linkGoogleMaps) { %>
+              <a href="<%= shipment.linkGoogleMaps %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="background-color: #ecfdf5; border-color: #a7f3d0; color: #065f46; font-weight: 600; text-decoration: none;">
+                📍 Abrir en Google Maps &nearr;
+              </a>
+            <% } %>
+            <% if (shipment.plusCode) { %>
+              <a href="https://plus.codes/<%= encodeURIComponent(shipment.plusCode) %>" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="background-color: #eff6ff; border-color: #bfdbfe; color: #1e40af; font-weight: 600; text-decoration: none;">
+                🌐 Plus Code: <code><%= shipment.plusCode %></code> &nearr;
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+      </div>
+
+      <div>
+        <label class="stat-label">Cantidad de Paquetes</label>
+        <div style="font-size: 1.25rem; font-weight: 700;"><%= shipment.cantidadPaquetes %> paquete(s)</div>
+      </div>
+
+      <div>
+        <label class="stat-label">Peso Declarado</label>
+        <div style="font-size: 1.25rem; font-weight: 700;"><%= shipment.peso ? `${shipment.peso} kg` : 'No especificado' %></div>
+      </div>
+
+      <div>
+        <label class="stat-label">Tipo de Servicio</label>
+        <div style="font-size: 1.1rem; font-weight: 600;"><span class="badge badge-secondary"><%= shipment.tipoServicio %></span></div>
+      </div>
+
+      <% if (shipment.descripcion) { %>
+        <div style="grid-column: 1 / -1;">
+          <label class="stat-label">Descripción del Contenido</label>
+          <div style="background-color: #f8fafc; padding: 12px; border-radius: var(--radius); border: 1px solid var(--border-color); font-size: 0.95rem;">
+            <%= shipment.descripcion %>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (shipment.observaciones) { %>
+        <div style="grid-column: 1 / -1;">
+          <label class="stat-label">Observaciones Operativas</label>
+          <div style="background-color: #fffbeb; padding: 12px; border-radius: var(--radius); border: 1px solid #fde68a; font-size: 0.95rem; color: #92400e;">
+            ⚠️ <%= shipment.observaciones %>
+          </div>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Bloque de Auditoría -->
+    <div class="audit-box" style="margin-top: 28px;">
+      <div><strong>Creado el:</strong> <%= shipment.fechaCreacion %> &bull; <strong>Por:</strong> <%= shipment.creadoPor || 'Sistema' %></div>
+      <div><strong>Última modificación:</strong> <%= shipment.fechaModificacion || 'Sin modificaciones' %> &bull; <strong>Por:</strong> <%= shipment.modificadoPor || '-' %></div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

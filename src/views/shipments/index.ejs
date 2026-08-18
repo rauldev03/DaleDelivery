@@ -1,0 +1,285 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Módulo de Envíos</h1>
+    <p class="page-subtitle">Control y seguimiento operativo de paquetes y despachos</p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="/envios/masivo" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary); font-weight: 600;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      <span>Registro Masivo (Tabla)</span>
+    </a>
+    <a href="/envios/nuevo" class="btn btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Nuevo Envío</span>
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Listado General de Envíos</h2>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">Total: <strong><%= pagination.total %></strong> envíos</span>
+  </div>
+
+  <div class="card-body">
+    <!-- Barra de Filtros Avanzados (Filtrado Automático) -->
+    <form method="GET" action="/envios" id="filter-form" class="toolbar" style="align-items: flex-start; margin-bottom: 24px;">
+      <div class="filters-bar" style="width: 100%; gap: 12px; display: flex; flex-wrap: wrap;">
+        <!-- Buscador General -->
+        <div style="flex: 1; min-width: 200px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Buscar</label>
+          <input 
+            type="text" 
+            name="search" 
+            id="filter-search"
+            class="form-control filter-input" 
+            placeholder="Destinatario, dirección, cliente..." 
+            value="<%= filters.search %>"
+            autocomplete="off"
+          >
+        </div>
+
+        <!-- Filtro por Fecha de Registro -->
+        <div style="width: 160px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Fecha Registro</label>
+          <input 
+            type="date" 
+            name="fechaRegistro" 
+            class="form-control filter-auto" 
+            value="<%= filters.fechaRegistro %>"
+            title="Filtrar por fecha de registro"
+          >
+        </div>
+
+        <!-- Filtro por Fecha de Entrega -->
+        <div style="width: 160px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Fecha Entrega</label>
+          <input 
+            type="date" 
+            name="fechaEntrega" 
+            class="form-control filter-auto" 
+            value="<%= filters.fechaEntrega %>"
+            title="Filtrar por fecha de entrega"
+          >
+        </div>
+
+        <!-- Filtro por Cliente -->
+        <div style="width: 190px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Cliente</label>
+          <select name="clienteId" class="form-control filter-auto">
+            <option value="">Todos los clientes</option>
+            <% clients.forEach(c => { %>
+              <option value="<%= c.id %>" <%= String(filters.clienteId) === String(c.id) ? 'selected' : '' %>>
+                <%= c.codigoCliente %> - <%= c.razonSocialNombre %>
+              </option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Filtro por Código de Envío -->
+        <div style="width: 150px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Código Envío</label>
+          <input 
+            type="text" 
+            name="codigo" 
+            class="form-control filter-input" 
+            placeholder="Ej. ENV-..." 
+            value="<%= filters.codigo %>"
+            autocomplete="off"
+          >
+        </div>
+
+        <!-- Filtro por Distrito -->
+        <div style="width: 140px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Distrito</label>
+          <input 
+            type="text" 
+            name="distrito" 
+            class="form-control filter-input" 
+            placeholder="Distrito" 
+            value="<%= filters.distrito %>"
+            autocomplete="off"
+          >
+        </div>
+
+        <!-- Filtro por Estado -->
+        <div style="width: 140px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Estado</label>
+          <select name="estado" class="form-control filter-auto">
+            <option value="">Todos</option>
+            <option value="Registrado" <%= filters.estado === 'Registrado' ? 'selected' : '' %>>Registrado</option>
+            <option value="En proceso" <%= filters.estado === 'En proceso' ? 'selected' : '' %>>En proceso</option>
+            <option value="Entregado" <%= filters.estado === 'Entregado' ? 'selected' : '' %>>Entregado</option>
+            <option value="Cancelado" <%= filters.estado === 'Cancelado' ? 'selected' : '' %>>Cancelado</option>
+          </select>
+        </div>
+
+        <% if (filters.search || filters.fechaRegistro || filters.fechaEntrega || filters.clienteId || filters.codigo || filters.distrito || filters.estado) { %>
+          <div style="display: flex; align-items: flex-end; margin-top: auto;">
+            <a href="/envios" class="btn btn-secondary btn-sm" style="height: 42px; background-color: #fff; border-color: var(--border-color);" title="Limpiar todos los filtros">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <span>Limpiar</span>
+            </a>
+          </div>
+        <% } %>
+      </div>
+    </form>
+
+    <script>
+      (function() {
+        const form = document.getElementById('filter-form');
+        if (!form) return;
+
+        // Auto-envío en selects y fechas
+        form.querySelectorAll('.filter-auto').forEach(function(el) {
+          el.addEventListener('change', function() {
+            form.submit();
+          });
+        });
+
+        // Auto-envío con debounce en campos de texto
+        var debounceTimer;
+        form.querySelectorAll('.filter-input').forEach(function(el) {
+          el.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var activeId = el.getAttribute('name');
+            sessionStorage.setItem('last_active_filter', activeId);
+            debounceTimer = setTimeout(function() {
+              form.submit();
+            }, 450);
+          });
+
+          el.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              clearTimeout(debounceTimer);
+              form.submit();
+            }
+          });
+        });
+
+        // Restaurar foco suavemente al recargar tras debounce si aplica
+        var lastActive = sessionStorage.getItem('last_active_filter');
+        if (lastActive) {
+          var targetInput = form.querySelector('[name="' + lastActive + '"]');
+          if (targetInput) {
+            targetInput.focus();
+            var val = targetInput.value;
+            targetInput.setSelectionRange(val.length, val.length);
+          }
+          sessionStorage.removeItem('last_active_filter');
+        }
+      })();
+    </script>
+
+    <!-- Tabla de Envíos -->
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Código Envío</th>
+            <th>F. Registro</th>
+            <th>F. Entrega</th>
+            <th>Cliente</th>
+            <th>Destinatario</th>
+            <th>Teléfono</th>
+            <th>Dirección / Ubicación</th>
+            <th>Servicio</th>
+            <th style="text-align: center;">Paq.</th>
+            <th>Estado</th>
+            <th style="text-align: right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (shipments.length === 0) { %>
+            <tr>
+              <td colspan="11" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                No se encontraron envíos registrados con los filtros especificados.
+              </td>
+            </tr>
+          <% } else { %>
+            <% shipments.forEach(shipment => { %>
+              <tr>
+                <td>
+                  <a href="/envios/<%= shipment.id %>" class="code-link">
+                    <%= shipment.codigoEnvio %>
+                  </a>
+                </td>
+                <td style="white-space: nowrap;"><%= shipment.fechaRegistro %></td>
+                <td style="white-space: nowrap;">
+                  <% if (shipment.fechaEntrega) { %>
+                    <span style="color: var(--success-text); font-weight: 600;">✓ <%= shipment.fechaEntrega %></span>
+                  <% } else { %>
+                    <span style="color: var(--text-light);">-</span>
+                  <% } %>
+                </td>
+                <td>
+                  <div><strong><%= shipment.clienteCodigo %></strong></div>
+                  <div style="font-size: 0.82rem; color: var(--text-muted);"><%= shipment.clienteNombre %></div>
+                </td>
+                <td>
+                  <strong><%= shipment.destinatarioNombre %></strong>
+                  <% if (shipment.destinatarioDocumento) { %>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">Doc: <%= shipment.destinatarioDocumento %></div>
+                  <% } %>
+                </td>
+                <td style="white-space: nowrap;"><%= shipment.destinatarioTelefono %></td>
+                <td>
+                  <div style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= shipment.direccion %>">
+                    <%= shipment.direccion %>
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">
+                    <%= shipment.distrito %>, <%= shipment.provincia %>
+                  </div>
+                </td>
+                <td><span class="badge badge-secondary"><%= shipment.tipoServicio %></span></td>
+                <td style="text-align: center;"><strong><%= shipment.cantidadPaquetes %></strong></td>
+                <td>
+                  <span class="badge <%= shipment.getStatusBadgeClass() %>">
+                    <%= shipment.estado %>
+                  </span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <a href="/envios/<%= shipment.id %>" class="btn btn-secondary btn-sm" title="Ver Detalle">Ver</a>
+                  <a href="/envios/<%= shipment.id %>/editar" class="btn btn-secondary btn-sm" title="Editar">Editar</a>
+                </td>
+              </tr>
+            <% }); %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <% if (pagination.totalPages > 1) { %>
+      <div class="pagination">
+        <div>
+          Página <strong><%= pagination.page %></strong> de <strong><%= pagination.totalPages %></strong>
+        </div>
+        <div class="pagination-controls">
+          <% const queryParams = `search=${encodeURIComponent(filters.search)}&fechaRegistro=${encodeURIComponent(filters.fechaRegistro)}&fechaEntrega=${encodeURIComponent(filters.fechaEntrega)}&clienteId=${encodeURIComponent(filters.clienteId)}&codigo=${encodeURIComponent(filters.codigo)}&distrito=${encodeURIComponent(filters.distrito)}&estado=${encodeURIComponent(filters.estado)}`; %>
+
+          <% if (pagination.page > 1) { %>
+            <a href="/envios?page=<%= pagination.page - 1 %>&<%= queryParams %>" class="page-link">&laquo; Anterior</a>
+          <% } else { %>
+            <span class="page-link disabled">&laquo; Anterior</span>
+          <% } %>
+
+          <% for (let p = 1; p <= pagination.totalPages; p++) { %>
+            <a href="/envios?page=<%= p %>&<%= queryParams %>" class="page-link <%= p === pagination.page ? 'active' : '' %>"><%= p %></a>
+          <% } %>
+
+          <% if (pagination.page < pagination.totalPages) { %>
+            <a href="/envios?page=<%= pagination.page + 1 %>&<%= queryParams %>" class="page-link">Siguiente &raquo;</a>
+          <% } else { %>
+            <span class="page-link disabled">Siguiente &raquo;</span>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,188 @@
+<%- include('../partials/header') %>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Editar Cliente <%= client.codigoCliente %></h1>
+    <p class="page-subtitle">Modificación de información del cliente <%= client.razonSocialNombre %></p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="/clientes/<%= client.id %>" class="btn btn-secondary">
+      Ver Ficha
+    </a>
+    <a href="/clientes" class="btn btn-secondary">
+      &larr; Volver al Listado
+    </a>
+  </div>
+</div>
+
+<% if (typeof errors !== 'undefined' && errors.length > 0) { %>
+  <div class="alert alert-error">
+    <div>
+      <strong>Por favor corrija los siguientes errores:</strong>
+      <ul style="margin-top: 6px; padding-left: 20px;">
+        <% errors.forEach(err => { %>
+          <li><%= err %></li>
+        <% }); %>
+      </ul>
+    </div>
+  </div>
+<% } %>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Edición de Datos</h2>
+    <div>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Código:</span>
+      <span class="badge badge-info" style="font-size: 0.95rem; padding: 6px 12px;"><%= client.codigoCliente %></span>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <form action="/clientes/<%= client.id %>/editar" method="POST" autocomplete="off">
+      <div class="form-grid">
+        <!-- Tipo de Documento -->
+        <div class="form-group">
+          <label class="form-label" for="tipoDocumento">Tipo de Documento <span class="required">*</span></label>
+          <select name="tipoDocumento" id="tipoDocumento" class="form-control" required>
+            <option value="DNI" <%= client.tipoDocumento === 'DNI' ? 'selected' : '' %>>DNI (8 dígitos)</option>
+            <option value="RUC" <%= client.tipoDocumento === 'RUC' ? 'selected' : '' %>>RUC (11 dígitos)</option>
+            <option value="CE" <%= client.tipoDocumento === 'CE' ? 'selected' : '' %>>Carné de Extranjería (CE)</option>
+            <option value="Pasaporte" <%= client.tipoDocumento === 'Pasaporte' ? 'selected' : '' %>>Pasaporte</option>
+          </select>
+        </div>
+
+        <!-- Número de Documento -->
+        <div class="form-group">
+          <label class="form-label" for="numeroDocumento">DNI / RUC (Número de Documento) <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="numeroDocumento" 
+            id="numeroDocumento" 
+            class="form-control" 
+            value="<%= client.numeroDocumento || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Razón Social o Nombre -->
+        <div class="form-group col-full">
+          <label class="form-label" for="razonSocialNombre">Razón Social o Nombre Completo <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="razonSocialNombre" 
+            id="razonSocialNombre" 
+            class="form-control" 
+            value="<%= client.razonSocialNombre || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Persona de Contacto -->
+        <div class="form-group">
+          <label class="form-label" for="contacto">Persona de Contacto</label>
+          <input 
+            type="text" 
+            name="contacto" 
+            id="contacto" 
+            class="form-control" 
+            value="<%= client.contacto || '' %>"
+          >
+        </div>
+
+        <!-- Teléfono -->
+        <div class="form-group">
+          <label class="form-label" for="telefono">Teléfono / Celular <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="telefono" 
+            id="telefono" 
+            class="form-control" 
+            value="<%= client.telefono || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Correo Electrónico -->
+        <div class="form-group">
+          <label class="form-label" for="correo">Correo Electrónico</label>
+          <input 
+            type="email" 
+            name="correo" 
+            id="correo" 
+            class="form-control" 
+            value="<%= client.correo || '' %>"
+          >
+        </div>
+
+        <!-- Dirección -->
+        <div class="form-group col-full">
+          <label class="form-label" for="direccion">Dirección Fiscal / Despacho <span class="required">*</span></label>
+          <input 
+            type="text" 
+            name="direccion" 
+            id="direccion" 
+            class="form-control" 
+            value="<%= client.direccion || '' %>" 
+            required
+          >
+        </div>
+
+        <!-- Departamento -->
+        <div class="form-group">
+          <label class="form-label" for="departamento">Departamento <span class="required">*</span></label>
+          <select name="departamento" id="departamento" class="form-control" required>
+            <% (typeof departments !== 'undefined' ? departments : ['Lima', 'Callao']).forEach(dept => { %>
+              <option value="<%= dept %>" <%= (client.departamento === dept || (!client.departamento && dept === 'Lima')) ? 'selected' : '' %>><%= dept %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Provincia -->
+        <div class="form-group">
+          <label class="form-label" for="provincia">Provincia <span class="required">*</span></label>
+          <select name="provincia" id="provincia" class="form-control" required>
+            <% (typeof provinces !== 'undefined' ? provinces : ['Lima', 'Callao']).forEach(prov => { %>
+              <option value="<%= prov %>" <%= (client.provincia === prov || (!client.provincia && prov === 'Lima')) ? 'selected' : '' %>><%= prov %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Distrito -->
+        <div class="form-group">
+          <label class="form-label" for="distrito">Distrito <span class="required">*</span></label>
+          <select name="distrito" id="distrito" class="form-control" required>
+            <option value="">-- Seleccione un distrito --</option>
+            <% (typeof districts !== 'undefined' ? districts : ['San Isidro', 'Miraflores', 'Santiago de Surco']).forEach(dist => { %>
+              <option value="<%= dist %>" <%= client.distrito === dist ? 'selected' : '' %>><%= dist %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <!-- Estado -->
+        <div class="form-group">
+          <label class="form-label" for="estado">Estado</label>
+          <select name="estado" id="estado" class="form-control">
+            <option value="Activo" <%= client.estado === 'Activo' ? 'selected' : '' %>>Activo</option>
+            <option value="Inactivo" <%= client.estado === 'Inactivo' ? 'selected' : '' %>>Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Datos de Auditoría -->
+      <div class="audit-box">
+        <div><strong>Creado:</strong> <%= client.fechaCreacion || client.fechaRegistro || '-' %> por <%= client.creadoPor || 'Sistema' %></div>
+        <div><strong>Modificado:</strong> <%= client.fechaModificacion || 'Sin modificaciones' %> por <%= client.modificadoPor || '-' %></div>
+      </div>
+
+      <div class="form-actions">
+        <a href="/clientes" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary" id="btn-update-client">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Guardar Cambios</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
