@@ -5,6 +5,7 @@ console.log('EJECUCIÓN DE BATERÍA DE PRUEBAS INTEGRALES DEL SISTEMA');
 console.log('====================================================\n');
 
 const tests = [
+  'test_landing.js',
   'test_auth.js',
   'test_clients.js',
   'test_shipments.js',

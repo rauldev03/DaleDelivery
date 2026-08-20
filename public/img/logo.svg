@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B00"/>
+      <stop offset="100%" stop-color="#FF4800"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005BBE"/>
+      <stop offset="100%" stop-color="#003D82"/>
+    </linearGradient>
+    <filter id="logoGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#FF5A00" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Left Orange Section of D -->
+  <path d="M 160 145 L 245 145 L 180 260 L 225 260 L 195 355 L 120 355 Z" fill="url(#orangeGrad)" />
+  
+  <!-- Right Blue Section of D -->
+  <path d="M 305 150 C 375 160 410 215 375 285 C 345 345 270 355 200 355 L 245 240 L 205 240 L 270 150 Z" fill="url(#blueGrad)" />
+  
+  <!-- Lightning Bolt White Accent -->
+  <polygon points="275,145 180,265 230,265 190,355 310,235 255,235" fill="#FFFFFF"/>
+</svg>

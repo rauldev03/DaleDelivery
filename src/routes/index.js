@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
+const landingRoutes = require('./landingRoutes');
 const authRoutes = require('./authRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const clientRoutes = require('./clientRoutes');
@@ -8,13 +9,8 @@ const shipmentRoutes = require('./shipmentRoutes');
 const reportRoutes = require('./reportRoutes');
 const mapRoutes = require('./mapRoutes');
 
-// Redirección raíz
-router.get('/', (req, res) => {
-  if (req.session && req.session.user) {
-    return res.redirect('/dashboard');
-  }
-  return res.redirect('/login');
-});
+// Rutas públicas y privadas del sistema
+router.use('/', landingRoutes);
 
 router.use('/', authRoutes);
 router.use('/', dashboardRoutes);
