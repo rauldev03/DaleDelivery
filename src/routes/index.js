@@ -6,6 +6,7 @@ const dashboardRoutes = require('./dashboardRoutes');
 const clientRoutes = require('./clientRoutes');
 const shipmentRoutes = require('./shipmentRoutes');
 const reportRoutes = require('./reportRoutes');
+const mapRoutes = require('./mapRoutes');
 
 // Redirección raíz
 router.get('/', (req, res) => {
@@ -20,5 +21,6 @@ router.use('/', dashboardRoutes);
 router.use('/', clientRoutes);
 router.use('/', shipmentRoutes);
 router.use('/', reportRoutes);
+router.use('/', mapRoutes);
 
 module.exports = router;

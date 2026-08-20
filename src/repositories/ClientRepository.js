@@ -28,7 +28,7 @@ class ClientRepository {
     return `CLI-${String(Date.now()).slice(-6)}`;
   }
 
-  findAll({ search = '', estado = '', page = 1, limit = 10 }) {
+  findAll({ search = '', estado = '', page = 1, limit = 10 } = {}) {
     let whereClauses = [];
     let params = {};
 

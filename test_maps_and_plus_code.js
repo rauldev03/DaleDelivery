@@ -83,11 +83,21 @@ async function runMapsAndPlusCodeTests() {
   console.log('   ✅ Envío masivo con Google Maps y Plus Code guardado con éxito.');
 
   // 4. Consultar detalle del envío creado
-  console.log('4. Verificando detalle del envío (GET /envios/1)...');
+  const searchCarlos = await request({
+    hostname: 'localhost',
+    port: 3000,
+    path: '/envios?search=Carlos+Mendoza',
+    method: 'GET',
+    headers: { 'Cookie': cookie }
+  });
+  const carlosIdMatch = searchCarlos.body.match(/href="\/envios\/(\d+)"/);
+  const carlosId = carlosIdMatch ? carlosIdMatch[1] : '1';
+
+  console.log(`4. Verificando detalle del envío (GET /envios/${carlosId})...`);
   const getShow = await request({
     hostname: 'localhost',
     port: 3000,
-    path: '/envios/1',
+    path: `/envios/${carlosId}`,
     method: 'GET',
     headers: { 'Cookie': cookie }
   });

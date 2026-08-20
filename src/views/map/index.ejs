@@ -1,0 +1,735 @@
+<%- include('../partials/header') %>
+
+<style>
+  .map-page-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .map-header-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  /* Barra de API Key si no está configurada en .env */
+  .api-key-banner {
+    background: linear-gradient(135deg, #1E293B, #0F172A);
+    color: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    border: 1px solid #334155;
+  }
+
+  .api-key-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .api-key-field {
+    background: #0F172A;
+    border: 1px solid #475569;
+    color: #F8FAFC;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    min-width: 260px;
+    outline: none;
+    font-family: monospace;
+  }
+
+  .api-key-field:focus {
+    border-color: var(--primary);
+  }
+
+  .btn-save-key {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+
+  .btn-save-key:hover {
+    background: var(--primary-hover);
+  }
+
+  .search-box-wrapper {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .search-input-group {
+    flex: 1;
+    min-width: 280px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-input-group svg.icon-search {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .search-input-field {
+    width: 100%;
+    padding: 12px 14px 12px 42px;
+    font-size: 15px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    outline: none;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .search-input-field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+
+  /* Estilos para el dropdown de Google Places Autocomplete */
+  .pac-container {
+    border-radius: 8px;
+    margin-top: 4px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid var(--border-color);
+    font-family: inherit;
+    z-index: 99999 !important;
+  }
+  .pac-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .pac-item:hover, .pac-item-selected {
+    background-color: var(--primary-light);
+  }
+  .pac-item-query {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .btn-search-map {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    transition: background 0.2s;
+  }
+
+  .btn-search-map:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-search-map:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .btn-paste-map {
+    background: var(--secondary-light);
+    color: var(--secondary);
+    border: 1px solid var(--secondary-border);
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+
+  .btn-paste-map:hover {
+    background: #dbeafe;
+  }
+
+  .quick-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .chip-badge {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .chip-badge:hover {
+    background: var(--primary-light);
+    border-color: var(--primary-border);
+    color: var(--primary);
+  }
+
+  /* Grid Layout: Mapa a la izquierda, Panel lateral a la derecha */
+  .map-workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    min-height: 640px;
+  }
+
+  @media (max-width: 1024px) {
+    .map-workspace-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Contenedor del Mapa */
+  .map-card-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    position: relative;
+  }
+
+  .map-toolbar {
+    padding: 10px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 10;
+  }
+
+  .map-toolbar-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #EFF6FF;
+    color: #1E40AF;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #BFDBFE;
+  }
+
+  #google-map-container {
+    width: 100%;
+    height: 100%;
+    min-height: 560px;
+    z-index: 1;
+  }
+
+  /* Panel de Resultados y Envíos */
+  .map-sidebar-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .sidebar-tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: #f8fafc;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    color: var(--primary);
+    background: white;
+    border-bottom-color: var(--primary);
+  }
+
+  .tab-content-area {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: 580px;
+    flex: 1;
+  }
+
+  /* Tarjeta de ubicación activa */
+  .location-detail-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .location-badge-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: var(--primary-light);
+    color: var(--primary);
+    margin-bottom: 8px;
+  }
+
+  .location-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .location-coords-box {
+    background: var(--bg-main);
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: monospace;
+    font-size: 13px;
+    margin: 12px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .location-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .btn-nav-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.1s, opacity 0.2s;
+  }
+
+  .btn-nav-action:active {
+    transform: scale(0.98);
+  }
+
+  .btn-nav-gmaps {
+    background: #10B981;
+    color: white;
+  }
+  .btn-nav-gmaps:hover {
+    background: #059669;
+  }
+
+  .btn-nav-waze {
+    background: #0284C7;
+    color: white;
+  }
+  .btn-nav-waze:hover {
+    background: #0369A1;
+  }
+
+  .btn-nav-whatsapp {
+    background: #25D366;
+    color: white;
+  }
+  .btn-nav-whatsapp:hover {
+    background: #1EBE5D;
+  }
+
+  /* Lista de envíos */
+  .shipment-filter-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .shipment-item-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .shipment-item-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 2px 6px rgba(255, 90, 0, 0.12);
+    transform: translateY(-1px);
+  }
+
+  .shipment-item-card.active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+
+  .shipment-code {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
+  }
+
+  .shipment-dest {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-main);
+    margin: 3px 0;
+  }
+
+  .shipment-address {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  .shipment-badges {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .badge-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  .badge-plus {
+    background: #FEF3C7;
+    color: #92400E;
+  }
+
+  .badge-maps {
+    background: #DBEAFE;
+    color: #1E40AF;
+  }
+</style>
+
+<div class="map-page-container">
+  <!-- Banner de Configuración de Google Maps API Key -->
+  <div class="api-key-banner" id="api-key-banner">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF5A00" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">Google Maps JavaScript & Places API</div>
+        <div style="font-size: 12px; color: #94A3B8;">Ingresa tu API Key de Google Maps para habilitar autocompletado oficial, geocodificación de alta precisión y tráfico en vivo.</div>
+      </div>
+    </div>
+    <div class="api-key-input-group">
+      <input 
+        type="password" 
+        id="google-api-key-input" 
+        class="api-key-field" 
+        placeholder="Pega tu Google Maps API Key (AIzaSy...)" 
+        value="<%= typeof googleMapsApiKey !== 'undefined' ? googleMapsApiKey : '' %>"
+      />
+      <button type="button" class="btn-save-key" id="btn-save-api-key" onclick="saveAndLoadGoogleMapsKey()">
+        Cargar Google Maps
+      </button>
+    </div>
+  </div>
+
+  <!-- Encabezado y Barra de Búsqueda con Autocompletado de Google -->
+  <div class="map-header-card">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h1 style="font-size: 22px; font-weight: 800; color: var(--text-main); margin: 0;">Visor de Google Maps Oficial</h1>
+          <span class="map-toolbar-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Google Cloud Platform
+          </span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 4px 0 0 0;">
+          Escribe una dirección (con <strong>autocompletado de Google</strong>), pega un <strong>Código Plus</strong> (ej. <code>87G83W3M+2X</code> o <code>57V4VXHC+63</code>) o enlace de <strong>Google Maps</strong>.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn-paste-map" id="btn-paste-clipboard" title="Pegar del portapapeles">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+          </svg>
+          Pegar
+        </button>
+      </div>
+    </div>
+
+    <!-- Formulario de búsqueda -->
+    <form id="map-search-form" onsubmit="return false;">
+      <div class="search-box-wrapper">
+        <div class="search-input-group">
+          <svg class="icon-search" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input 
+            type="text" 
+            id="location-query-input" 
+            class="search-input-field" 
+            placeholder="Buscar por dirección en Lima (autocompletado Google), Código Plus (57V4VXHC+63) o link..."
+            value="<%= typeof initialQuery !== 'undefined' ? initialQuery : '' %>"
+            autocomplete="off"
+          />
+        </div>
+        <button type="button" id="btn-search-locate" class="btn-search-map" onclick="triggerSearch()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+          </svg>
+          <span>Ubicar con Google Maps</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Chips de prueba rápida -->
+    <div class="quick-chips">
+      <span style="font-weight: 600; color: var(--text-main);">Ejemplos rápidos:</span>
+      <span class="chip-badge" onclick="setQuickInput('57V4VXHC+63')">📍 Plus Code Miraflores (57V4VXHC+63)</span>
+      <span class="chip-badge" onclick="setQuickInput('Av. Javier Prado Este 4200, Santiago de Surco')">🏢 Jockey Plaza</span>
+      <span class="chip-badge" onclick="setQuickInput('Av. Larco 743, Miraflores')">📍 Av. Larco 743, Miraflores</span>
+      <span class="chip-badge" onclick="setQuickInput('-12.0965, -77.0352')">📍 Coordenadas San Isidro</span>
+    </div>
+  </div>
+
+  <!-- Grid Principal con Mapa y Panel Lateral -->
+  <div class="map-workspace-grid">
+    <!-- Contenedor del Mapa -->
+    <div class="map-card-wrapper">
+      <div class="map-toolbar">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 13px; font-weight: 700; color: var(--text-main);">Opciones de Mapa:</span>
+          <button type="button" class="btn-paste-map" style="padding: 6px 12px; font-size: 12px;" id="btn-toggle-traffic" onclick="toggleTrafficLayer()">
+            🚦 Tráfico en Tiempo Real
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-paste-map" style="padding: 6px 12px; font-size: 12px;" onclick="centerOnLima()" title="Centrar mapa en Lima, Perú">
+            🎯 Lima
+          </button>
+          <button type="button" class="btn-paste-map" style="padding: 6px 12px; font-size: 12px;" onclick="locateUserGPS()" title="Mi ubicación GPS">
+            📍 Mi GPS
+          </button>
+        </div>
+      </div>
+
+      <!-- Div Oficial de Google Maps -->
+      <div id="google-map-container"></div>
+    </div>
+
+    <!-- Panel Lateral: Detalles de Ubicación & Selector de Envíos -->
+    <div class="map-sidebar-card">
+      <div class="sidebar-tab-header">
+        <button type="button" class="tab-btn active" id="tab-btn-location" onclick="switchSidebarTab('location')">
+          📍 Ubicación
+        </button>
+        <button type="button" class="tab-btn" id="tab-btn-shipments" onclick="switchSidebarTab('shipments')">
+          📦 Envíos Registrados (<%= shipments ? shipments.length : 0 %>)
+        </button>
+      </div>
+
+      <div class="tab-content-area">
+        <!-- Pestaña 1: Detalle de Ubicación Actual -->
+        <div id="tab-content-location">
+          <div id="location-empty-state" style="text-align: center; padding: 40px 16px; color: var(--text-muted);">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--bg-main); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; color: var(--primary);">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+            </div>
+            <h3 style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">Sin punto seleccionado</h3>
+            <p style="font-size: 13px; margin: 0;">Escribe en la barra superior o haz clic directamente en cualquier calle del mapa de Google.</p>
+          </div>
+
+          <div id="location-info-panel" style="display: none;">
+            <div class="location-detail-card">
+              <span class="location-badge-type" id="loc-type-badge">📍 GOOGLE MAPS</span>
+              <div class="location-title" id="loc-title">Miraflores, Lima</div>
+              
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;" id="loc-subtitle">
+                Dirección exacta verificada
+              </div>
+
+              <!-- Coordenadas -->
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Coordenadas:</div>
+              <div class="location-coords-box">
+                <span id="loc-coords-text">-12.121900, -77.029800</span>
+                <button type="button" style="background: none; border: none; cursor: pointer; color: var(--primary);" onclick="copyToClipboard(document.getElementById('loc-coords-text').innerText, 'Coordenadas copiadas')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Plus Code -->
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Plus Code Oficial:</div>
+              <div class="location-coords-box">
+                <span id="loc-pluscode-text" style="font-weight: 700; color: var(--primary);">57V4VXHC+63</span>
+                <button type="button" style="background: none; border: none; cursor: pointer; color: var(--primary);" onclick="copyToClipboard(document.getElementById('loc-pluscode-text').innerText, 'Plus Code copiado')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Botones de Navegación Externa -->
+              <div class="location-actions-grid">
+                <a id="btn-open-gmaps" href="#" target="_blank" class="btn-nav-action btn-nav-gmaps">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                  </svg>
+                  <span>Abrir en Google Maps</span>
+                </a>
+
+                <a id="btn-open-waze" href="#" target="_blank" class="btn-nav-action btn-nav-waze">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M8 12h8"></path>
+                    <path d="M12 8v8"></path>
+                  </svg>
+                  <span>Abrir en Waze</span>
+                </a>
+
+                <a id="btn-share-whatsapp" href="#" target="_blank" class="btn-nav-action btn-nav-whatsapp">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.316 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.818-.981z"/>
+                  </svg>
+                  <span>Enviar por WhatsApp al Motorizado</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pestaña 2: Lista de Envíos del Sistema -->
+        <div id="tab-content-shipments" style="display: none;">
+          <input 
+            type="text" 
+            id="shipment-filter-box" 
+            class="shipment-filter-input" 
+            placeholder="🔍 Filtrar por código, cliente o distrito..."
+            oninput="filterShipmentsList()"
+          />
+
+          <div id="shipments-list-container">
+            <% if (shipments && shipments.length > 0) { %>
+              <% shipments.forEach(function(s) { %>
+                <div 
+                  class="shipment-item-card" 
+                  data-code="<%= s.codigoEnvio %>"
+                  data-dest="<%= s.destinatarioNombre %>"
+                  data-phone="<%= s.destinatarioTelefono %>"
+                  data-addr="<%= s.direccion %>"
+                  data-dist="<%= s.distrito %>"
+                  data-plus="<%= s.plusCode || '' %>"
+                  data-maps="<%= s.linkGoogleMaps || '' %>"
+                  onclick="selectShipmentFromList(this)"
+                >
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="shipment-code"><%= s.codigoEnvio %></span>
+                    <span style="font-size: 11px; color: var(--text-muted);"><%= s.fechaRegistro %></span>
+                  </div>
+                  <div class="shipment-dest"><%= s.destinatarioNombre %></div>
+                  <div class="shipment-address"><%= s.direccion %> - <strong><%= s.distrito %></strong></div>
+                  
+                  <div class="shipment-badges">
+                    <% if (s.plusCode) { %>
+                      <span class="badge-tag badge-plus">📍 Plus: <%= s.plusCode %></span>
+                    <% } %>
+                    <% if (s.linkGoogleMaps) { %>
+                      <span class="badge-tag badge-maps">🔗 Link Maps</span>
+                    <% } %>
+                    <% if (!s.plusCode && !s.linkGoogleMaps) { %>
+                      <span class="badge-tag" style="background: #F1F5F9; color: #64748B;">Texto / Dirección</span>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">
+                No hay envíos registrados todavía.
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts de Google Maps & Aplicación -->
+<script src="/js/map-viewer.js"></script>
+
+<%- include('../partials/footer') %>

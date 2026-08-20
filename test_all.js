@@ -12,7 +12,9 @@ const tests = [
   'test_reports_excel.js',
   'test_date_filters.js',
   'test_batch_shipments.js',
-  'test_excel_paste_and_districts.js'
+  'test_excel_paste_and_districts.js',
+  'test_maps_and_plus_code.js',
+  'test_map_viewer.js'
 ];
 
 let allPassed = true;

@@ -48,17 +48,17 @@ async function runDashboardTests() {
     throw new Error(`Error en el dashboard: status ${dashRes.statusCode}`);
   }
 
-  // Verificar que contenga los KPIs del día
+  // Verificar que contenga los KPIs y desglose por empresa
   const checks = [
     'Dashboard Operativo',
-    'Envíos de Hoy',
-    'Clientes Activos',
+    'Total Envíos',
+    'Empresas / Clientes',
     'Registrados',
     'En Proceso',
     'Entregados',
     'Cancelados',
-    'Últimos Envíos Registrados',
-    'ENV-'
+    'Empresa / Cliente',
+    'Efectividad'
   ];
 
   for (const check of checks) {
