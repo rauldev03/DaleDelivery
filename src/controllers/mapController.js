@@ -1,5 +1,5 @@
-const shipmentRepository = require('../repositories/shipmentRepository');
-const clientRepository = require('../repositories/clientRepository');
+const shipmentRepository = require('../repositories/ShipmentRepository');
+const clientRepository = require('../repositories/ClientRepository');
 const geoService = require('../services/geoService');
 const config = require('../config/app');
 
