@@ -36,9 +36,11 @@ class ShipmentRepository {
     fechaRegistro = '',
     fechaEntrega = '',
     clienteId = '',
+    conductorId = '',
     codigo = '',
     distrito = '',
     estado = '',
+    prioridad = '',
     page = 1,
     limit = 10
   }) {
@@ -53,7 +55,9 @@ class ShipmentRepository {
         e.direccion LIKE @search OR
         e.distrito LIKE @search OR
         c.codigo_cliente LIKE @search OR
-        c.razon_social_nombre LIKE @search
+        c.razon_social_nombre LIKE @search OR
+        d.nombre LIKE @search OR
+        d.apellidos LIKE @search
       )`);
       params.search = `%${search.trim()}%`;
     }
@@ -76,6 +80,15 @@ class ShipmentRepository {
       params.clienteId = parseInt(clienteId, 10);
     }
 
+    if (conductorId !== undefined && conductorId !== null && String(conductorId).trim() !== '') {
+      if (conductorId === 'unassigned' || conductorId === '0') {
+        whereClauses.push('e.conductor_id IS NULL');
+      } else {
+        whereClauses.push('e.conductor_id = @conductorId');
+        params.conductorId = parseInt(conductorId, 10);
+      }
+    }
+
     if (codigo && codigo.trim() !== '') {
       whereClauses.push('e.codigo_envio LIKE @codigo');
       params.codigo = `%${codigo.trim()}%`;
@@ -91,6 +104,11 @@ class ShipmentRepository {
       params.estado = estado.trim();
     }
 
+    if (prioridad && prioridad.trim() !== '') {
+      whereClauses.push('e.prioridad = @prioridad');
+      params.prioridad = prioridad.trim();
+    }
+
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     // Conteo total para paginación
@@ -98,6 +116,7 @@ class ShipmentRepository {
       SELECT COUNT(*) as total 
       FROM envios e
       JOIN clientes c ON e.cliente_id = c.id
+      LEFT JOIN conductores d ON e.conductor_id = d.id
       ${whereSQL}
     `);
     const totalRow = countStmt.get(params);
@@ -113,9 +132,16 @@ class ShipmentRepository {
         e.*,
         c.codigo_cliente as cliente_codigo,
         c.razon_social_nombre as cliente_nombre,
-        c.numero_documento as cliente_documento
+        c.numero_documento as cliente_documento,
+        d.nombre as conductor_nom,
+        d.apellidos as conductor_ape,
+        (d.nombre || ' ' || d.apellidos) as conductor_nombre,
+        d.vehiculo as conductor_vehiculo,
+        d.placa as conductor_placa,
+        d.telefono as conductor_telefono
       FROM envios e
       JOIN clientes c ON e.cliente_id = c.id
+      LEFT JOIN conductores d ON e.conductor_id = d.id
       ${whereSQL}
       ORDER BY e.id DESC 
       LIMIT @limit OFFSET @offset
@@ -139,9 +165,16 @@ class ShipmentRepository {
         e.*,
         c.codigo_cliente as cliente_codigo,
         c.razon_social_nombre as cliente_nombre,
-        c.numero_documento as cliente_documento
+        c.numero_documento as cliente_documento,
+        d.nombre as conductor_nom,
+        d.apellidos as conductor_ape,
+        (d.nombre || ' ' || d.apellidos) as conductor_nombre,
+        d.vehiculo as conductor_vehiculo,
+        d.placa as conductor_placa,
+        d.telefono as conductor_telefono
       FROM envios e
       JOIN clientes c ON e.cliente_id = c.id
+      LEFT JOIN conductores d ON e.conductor_id = d.id
       WHERE e.id = ?
     `).get(id);
 
@@ -154,29 +187,89 @@ class ShipmentRepository {
         e.*,
         c.codigo_cliente as cliente_codigo,
         c.razon_social_nombre as cliente_nombre,
-        c.numero_documento as cliente_documento
+        c.numero_documento as cliente_documento,
+        d.nombre as conductor_nom,
+        d.apellidos as conductor_ape,
+        (d.nombre || ' ' || d.apellidos) as conductor_nombre,
+        d.vehiculo as conductor_vehiculo,
+        d.placa as conductor_placa,
+        d.telefono as conductor_telefono
       FROM envios e
       JOIN clientes c ON e.cliente_id = c.id
+      LEFT JOIN conductores d ON e.conductor_id = d.id
       WHERE e.codigo_envio = ?
     `).get(codigoEnvio);
 
     return row ? new Shipment(row) : null;
   }
 
+  findByConductor(conductorId, onlyActive = false) {
+    let query = `
+      SELECT 
+        e.*,
+        c.codigo_cliente as cliente_codigo,
+        c.razon_social_nombre as cliente_nombre,
+        c.numero_documento as cliente_documento,
+        d.nombre as conductor_nom,
+        d.apellidos as conductor_ape,
+        (d.nombre || ' ' || d.apellidos) as conductor_nombre,
+        d.vehiculo as conductor_vehiculo,
+        d.placa as conductor_placa,
+        d.telefono as conductor_telefono
+      FROM envios e
+      JOIN clientes c ON e.cliente_id = c.id
+      LEFT JOIN conductores d ON e.conductor_id = d.id
+      WHERE e.conductor_id = ?
+    `;
+
+    if (onlyActive) {
+      query += ` AND e.estado NOT IN ('Entregado', 'Cancelado')`;
+    }
+
+    query += ` ORDER BY CASE WHEN e.orden_ruta > 0 THEN e.orden_ruta ELSE 999999 END ASC, e.id ASC`;
+
+    const rows = this.db.prepare(query).all(conductorId);
+    return rows.map(r => new Shipment(r));
+  }
+
+  findUnassigned({ limit = 100 } = {}) {
+    const rows = this.db.prepare(`
+      SELECT 
+        e.*,
+        c.codigo_cliente as cliente_codigo,
+        c.razon_social_nombre as cliente_nombre,
+        c.numero_documento as cliente_documento
+      FROM envios e
+      JOIN clientes c ON e.cliente_id = c.id
+      WHERE e.conductor_id IS NULL AND e.estado NOT IN ('Entregado', 'Cancelado')
+      ORDER BY 
+        CASE e.prioridad 
+          WHEN 'Alta' THEN 1 
+          WHEN 'Normal' THEN 2 
+          WHEN 'Baja' THEN 3 
+          ELSE 4 
+        END ASC,
+        e.id DESC
+      LIMIT ?
+    `).all(limit);
+
+    return rows.map(r => new Shipment(r));
+  }
+
   create(shipmentData) {
     const stmt = this.db.prepare(`
       INSERT INTO envios (
-        codigo_envio, cliente_id, fecha_registro, fecha_entrega, tipo_servicio,
+        codigo_envio, cliente_id, conductor_id, fecha_registro, fecha_entrega, tipo_servicio,
         destinatario_nombre, destinatario_documento, destinatario_telefono, destinatario_correo,
         direccion, referencia, distrito, provincia, departamento,
-        link_google_maps, plus_code,
-        cantidad_paquetes, peso, descripcion, observaciones, estado, creado_por
+        link_google_maps, plus_code, latitud, longitud,
+        cantidad_paquetes, peso, prioridad, orden_ruta, descripcion, observaciones, estado, creado_por
       ) VALUES (
-        @codigoEnvio, @clienteId, @fechaRegistro, @fechaEntrega, @tipoServicio,
+        @codigoEnvio, @clienteId, @conductorId, @fechaRegistro, @fechaEntrega, @tipoServicio,
         @destinatarioNombre, @destinatarioDocumento, @destinatarioTelefono, @destinatarioCorreo,
         @direccion, @referencia, @distrito, @provincia, @departamento,
-        @linkGoogleMaps, @plusCode,
-        @cantidadPaquetes, @peso, @descripcion, @observaciones, @estado, @creadoPor
+        @linkGoogleMaps, @plusCode, @latitud, @longitud,
+        @cantidadPaquetes, @peso, @prioridad, @ordenRuta, @descripcion, @observaciones, @estado, @creadoPor
       )
     `);
 
@@ -185,12 +278,27 @@ class ShipmentRepository {
       fechaEntrega = shipmentData.fechaRegistro || new Date().toISOString().split('T')[0];
     }
 
+    const conductorId = shipmentData.conductorId ? parseInt(shipmentData.conductorId, 10) : null;
+    let initialStatus = shipmentData.estado || (conductorId ? 'En proceso' : 'Registrado');
+    if (initialStatus === 'Asignado') initialStatus = 'En proceso';
+
+    let lat = shipmentData.latitud !== undefined && shipmentData.latitud !== null && shipmentData.latitud !== '' ? parseFloat(shipmentData.latitud) : null;
+    let lng = shipmentData.longitud !== undefined && shipmentData.longitud !== null && shipmentData.longitud !== '' ? parseFloat(shipmentData.longitud) : null;
+
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
+      const { getDistrictCoordinates } = require('../config/districts');
+      const coords = getDistrictCoordinates(shipmentData.distrito || 'Cercado de Lima', true);
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+
     const result = stmt.run({
       codigoEnvio: shipmentData.codigoEnvio,
       clienteId: shipmentData.clienteId,
+      conductorId,
       fechaRegistro: shipmentData.fechaRegistro,
       fechaEntrega,
-      tipoServicio: shipmentData.tipoServicio,
+      tipoServicio: shipmentData.tipoServicio || 'Estándar',
       destinatarioNombre: shipmentData.destinatarioNombre,
       destinatarioDocumento: shipmentData.destinatarioDocumento || '',
       destinatarioTelefono: shipmentData.destinatarioTelefono,
@@ -198,15 +306,19 @@ class ShipmentRepository {
       direccion: shipmentData.direccion,
       referencia: shipmentData.referencia || '',
       distrito: shipmentData.distrito,
-      provincia: shipmentData.provincia,
-      departamento: shipmentData.departamento,
+      provincia: shipmentData.provincia || 'Lima',
+      departamento: shipmentData.departamento || 'Lima',
       linkGoogleMaps: shipmentData.linkGoogleMaps || '',
       plusCode: shipmentData.plusCode || '',
-      cantidadPaquetes: shipmentData.cantidadPaquetes,
+      latitud: lat,
+      longitud: lng,
+      cantidadPaquetes: shipmentData.cantidadPaquetes || 1,
       peso: shipmentData.peso || 0,
+      prioridad: shipmentData.prioridad || 'Normal',
+      ordenRuta: shipmentData.ordenRuta || 0,
       descripcion: shipmentData.descripcion || '',
       observaciones: shipmentData.observaciones || '',
-      estado: shipmentData.estado || 'Registrado',
+      estado: initialStatus,
       creadoPor: shipmentData.creadoPor || 'Sistema'
     });
 
@@ -217,6 +329,7 @@ class ShipmentRepository {
     const stmt = this.db.prepare(`
       UPDATE envios
       SET cliente_id = @clienteId,
+          conductor_id = @conductorId,
           fecha_registro = @fechaRegistro,
           fecha_entrega = @fechaEntrega,
           tipo_servicio = @tipoServicio,
@@ -231,8 +344,12 @@ class ShipmentRepository {
           departamento = @departamento,
           link_google_maps = @linkGoogleMaps,
           plus_code = @plusCode,
+          latitud = @latitud,
+          longitud = @longitud,
           cantidad_paquetes = @cantidadPaquetes,
           peso = @peso,
+          prioridad = @prioridad,
+          orden_ruta = @ordenRuta,
           descripcion = @descripcion,
           observaciones = @observaciones,
           estado = @estado,
@@ -248,9 +365,14 @@ class ShipmentRepository {
       fechaEntrega = null;
     }
 
+    const conductorId = shipmentData.conductorId ? parseInt(shipmentData.conductorId, 10) : null;
+    let estadoToSave = shipmentData.estado || (conductorId ? 'En proceso' : 'Registrado');
+    if (estadoToSave === 'Asignado') estadoToSave = 'En proceso';
+
     stmt.run({
       id,
       clienteId: shipmentData.clienteId,
+      conductorId,
       fechaRegistro: shipmentData.fechaRegistro,
       fechaEntrega,
       tipoServicio: shipmentData.tipoServicio,
@@ -265,15 +387,133 @@ class ShipmentRepository {
       departamento: shipmentData.departamento,
       linkGoogleMaps: shipmentData.linkGoogleMaps || '',
       plusCode: shipmentData.plusCode || '',
+      latitud: shipmentData.latitud !== undefined && shipmentData.latitud !== null && shipmentData.latitud !== '' ? parseFloat(shipmentData.latitud) : null,
+      longitud: shipmentData.longitud !== undefined && shipmentData.longitud !== null && shipmentData.longitud !== '' ? parseFloat(shipmentData.longitud) : null,
       cantidadPaquetes: shipmentData.cantidadPaquetes,
       peso: shipmentData.peso || 0,
+      prioridad: shipmentData.prioridad || 'Normal',
+      ordenRuta: shipmentData.ordenRuta || 0,
       descripcion: shipmentData.descripcion || '',
       observaciones: shipmentData.observaciones || '',
-      estado: shipmentData.estado,
+      estado: estadoToSave,
       modificadoPor: shipmentData.modificadoPor || 'Sistema'
     });
 
     return this.findById(id);
+  }
+
+  assignToConductor(shipmentId, conductorId, modificadoPor = 'Sistema') {
+    const existing = this.findById(shipmentId);
+    if (!existing) return null;
+
+    const newStatus = existing.estado === 'Registrado' ? 'En proceso' : existing.estado;
+
+    const stmt = this.db.prepare(`
+      UPDATE envios
+      SET conductor_id = @conductorId,
+          estado = @estado,
+          fecha_modificacion = DATETIME('now', 'localtime'),
+          modificado_por = @modificadoPor
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id: shipmentId,
+      conductorId: parseInt(conductorId, 10),
+      estado: newStatus,
+      modificadoPor
+    });
+
+    return this.findById(shipmentId);
+  }
+
+  unassignFromConductor(shipmentId, modificadoPor = 'Sistema') {
+    const existing = this.findById(shipmentId);
+    if (!existing) return null;
+
+    const newStatus = existing.estado === 'En proceso' ? 'Registrado' : existing.estado;
+
+    const stmt = this.db.prepare(`
+      UPDATE envios
+      SET conductor_id = NULL,
+          orden_ruta = 0,
+          estado = @estado,
+          fecha_modificacion = DATETIME('now', 'localtime'),
+          modificado_por = @modificadoPor
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id: shipmentId,
+      estado: newStatus,
+      modificadoPor
+    });
+
+    return this.findById(shipmentId);
+  }
+
+  updateCoordinates(shipmentId, lat, lng, modificadoPor = 'Sistema') {
+    const stmt = this.db.prepare(`
+      UPDATE envios
+      SET latitud = @lat,
+          longitud = @lng,
+          fecha_modificacion = DATETIME('now', 'localtime'),
+          modificado_por = @modificadoPor
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id: shipmentId,
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      modificadoPor
+    });
+
+    return this.findById(shipmentId);
+  }
+
+  updateRouteOrder(shipmentId, ordenRuta, modificadoPor = 'Sistema') {
+    const stmt = this.db.prepare(`
+      UPDATE envios
+      SET orden_ruta = @ordenRuta,
+          fecha_modificacion = DATETIME('now', 'localtime'),
+          modificado_por = @modificadoPor
+      WHERE id = @id
+    `);
+
+    stmt.run({
+      id: shipmentId,
+      ordenRuta: parseInt(ordenRuta, 10),
+      modificadoPor
+    });
+
+    return this.findById(shipmentId);
+  }
+
+  saveRouteOptimizedOrder(orderedShipments, modificadoPor = 'Sistema') {
+    // orderedShipments: array of { id, ordenRuta }
+    if (!Array.isArray(orderedShipments) || orderedShipments.length === 0) return [];
+
+    const stmt = this.db.prepare(`
+      UPDATE envios
+      SET orden_ruta = @ordenRuta,
+          fecha_modificacion = DATETIME('now', 'localtime'),
+          modificado_por = @modificadoPor
+      WHERE id = @id
+    `);
+
+    const updateAll = this.db.transaction((list) => {
+      for (const item of list) {
+        stmt.run({
+          id: item.id,
+          ordenRuta: item.ordenRuta,
+          modificadoPor
+        });
+      }
+    });
+
+    updateAll(orderedShipments);
+    return true;
   }
 
   updateStatus(id, newStatus, modificadoPor, fechaEntrega = null) {
@@ -305,6 +545,12 @@ class ShipmentRepository {
     return this.findById(id);
   }
 
+  delete(id) {
+    const stmt = this.db.prepare(`DELETE FROM envios WHERE id = ?`);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+
   createBatch(shipmentsList) {
     if (!Array.isArray(shipmentsList) || shipmentsList.length === 0) {
       return [];
@@ -312,24 +558,23 @@ class ShipmentRepository {
 
     const stmt = this.db.prepare(`
       INSERT INTO envios (
-        codigo_envio, cliente_id, fecha_registro, fecha_entrega, tipo_servicio,
+        codigo_envio, cliente_id, conductor_id, fecha_registro, fecha_entrega, tipo_servicio,
         destinatario_nombre, destinatario_documento, destinatario_telefono, destinatario_correo,
         direccion, referencia, distrito, provincia, departamento,
-        link_google_maps, plus_code,
-        cantidad_paquetes, peso, descripcion, observaciones, estado, creado_por
+        link_google_maps, plus_code, latitud, longitud,
+        cantidad_paquetes, peso, prioridad, orden_ruta, descripcion, observaciones, estado, creado_por
       ) VALUES (
-        @codigoEnvio, @clienteId, @fechaRegistro, @fechaEntrega, @tipoServicio,
+        @codigoEnvio, @clienteId, @conductorId, @fechaRegistro, @fechaEntrega, @tipoServicio,
         @destinatarioNombre, @destinatarioDocumento, @destinatarioTelefono, @destinatarioCorreo,
         @direccion, @referencia, @distrito, @provincia, @departamento,
-        @linkGoogleMaps, @plusCode,
-        @cantidadPaquetes, @peso, @descripcion, @observaciones, @estado, @creadoPor
+        @linkGoogleMaps, @plusCode, @latitud, @longitud,
+        @cantidadPaquetes, @peso, @prioridad, @ordenRuta, @descripcion, @observaciones, @estado, @creadoPor
       )
     `);
 
     // Ejecución atómica en una única transacción
     const runTransaction = this.db.transaction((list) => {
       const inserted = [];
-      // Cache de secuencias por fecha para asignación consecutiva
       const dateCounters = {};
 
       for (const item of list) {
@@ -362,9 +607,12 @@ class ShipmentRepository {
           fechaEntrega = dateStr;
         }
 
+        const conductorId = item.conductorId ? parseInt(item.conductorId, 10) : null;
+
         const result = stmt.run({
           codigoEnvio,
           clienteId: item.clienteId,
+          conductorId,
           fechaRegistro: dateStr,
           fechaEntrega,
           tipoServicio: item.tipoServicio || 'Estándar',
@@ -379,11 +627,15 @@ class ShipmentRepository {
           departamento: item.departamento || 'Lima',
           linkGoogleMaps: item.linkGoogleMaps || '',
           plusCode: item.plusCode || '',
+          latitud: item.latitud !== undefined && item.latitud !== null ? parseFloat(item.latitud) : null,
+          longitud: item.longitud !== undefined && item.longitud !== null ? parseFloat(item.longitud) : null,
           cantidadPaquetes: parseInt(item.cantidadPaquetes || 1, 10),
           peso: parseFloat(item.peso || 0),
+          prioridad: item.prioridad || 'Normal',
+          ordenRuta: item.ordenRuta || 0,
           descripcion: item.descripcion || '',
           observaciones: item.observaciones || '',
-          estado: item.estado || 'Registrado',
+          estado: item.estado || (conductorId ? 'Asignado' : 'Registrado'),
           creadoPor: item.creadoPor || 'Sistema'
         });
 

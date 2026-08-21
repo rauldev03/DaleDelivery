@@ -205,6 +205,33 @@ class ShipmentService {
       shipments: insertedShipments
     };
   }
+
+  assignShipmentToDriver(shipmentId, driverId, currentUser = null) {
+    const modificadoPor = currentUser ? (currentUser.nombre || currentUser.username) : 'Sistema';
+    const updated = shipmentRepository.assignToConductor(shipmentId, driverId, modificadoPor);
+    if (!updated) {
+      return { success: false, message: 'Envío no encontrado.' };
+    }
+    return { success: true, shipment: updated };
+  }
+
+  unassignShipmentFromDriver(shipmentId, currentUser = null) {
+    const modificadoPor = currentUser ? (currentUser.nombre || currentUser.username) : 'Sistema';
+    const updated = shipmentRepository.unassignFromConductor(shipmentId, modificadoPor);
+    if (!updated) {
+      return { success: false, message: 'Envío no encontrado.' };
+    }
+    return { success: true, shipment: updated };
+  }
+
+  updateCoordinates(shipmentId, lat, lng, currentUser = null) {
+    const modificadoPor = currentUser ? (currentUser.nombre || currentUser.username) : 'Sistema';
+    const updated = shipmentRepository.updateCoordinates(shipmentId, lat, lng, modificadoPor);
+    if (!updated) {
+      return { success: false, message: 'Envío no encontrado.' };
+    }
+    return { success: true, shipment: updated };
+  }
 }
 
 module.exports = new ShipmentService();

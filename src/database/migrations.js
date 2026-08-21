@@ -45,11 +45,33 @@ function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_clientes_estado ON clientes(estado);
     CREATE INDEX IF NOT EXISTS idx_clientes_distrito ON clientes(distrito);
 
+    -- Tabla de Conductores
+    CREATE TABLE IF NOT EXISTS conductores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      apellidos TEXT NOT NULL,
+      documento TEXT NOT NULL UNIQUE,
+      telefono TEXT,
+      vehiculo TEXT NOT NULL,
+      placa TEXT,
+      capacidad REAL DEFAULT 0,
+      estado TEXT NOT NULL DEFAULT 'Disponible' CHECK(estado IN ('Disponible', 'En ruta', 'No disponible')),
+      fecha_creacion TEXT NOT NULL DEFAULT (DATETIME('now', 'localtime')),
+      fecha_modificacion TEXT,
+      creado_por TEXT DEFAULT 'Sistema',
+      modificado_por TEXT
+    );
+
+    -- Índices para Conductores
+    CREATE INDEX IF NOT EXISTS idx_conductores_documento ON conductores(documento);
+    CREATE INDEX IF NOT EXISTS idx_conductores_estado ON conductores(estado);
+
     -- Tabla de Envíos
     CREATE TABLE IF NOT EXISTS envios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       codigo_envio TEXT NOT NULL UNIQUE,
       cliente_id INTEGER NOT NULL,
+      conductor_id INTEGER,
       fecha_registro TEXT NOT NULL,
       fecha_entrega TEXT,
       tipo_servicio TEXT NOT NULL,
@@ -64,8 +86,12 @@ function runMigrations() {
       departamento TEXT NOT NULL,
       link_google_maps TEXT,
       plus_code TEXT,
+      latitud REAL,
+      longitud REAL,
       cantidad_paquetes INTEGER NOT NULL CHECK(cantidad_paquetes > 0),
       peso REAL DEFAULT 0,
+      prioridad TEXT NOT NULL DEFAULT 'Normal' CHECK(prioridad IN ('Baja', 'Normal', 'Alta')),
+      orden_ruta INTEGER DEFAULT 0,
       descripcion TEXT,
       observaciones TEXT,
       estado TEXT NOT NULL DEFAULT 'Registrado' CHECK(estado IN ('Registrado', 'En proceso', 'Entregado', 'Cancelado')),
@@ -73,7 +99,8 @@ function runMigrations() {
       fecha_modificacion TEXT,
       creado_por TEXT,
       modificado_por TEXT,
-      FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT
+      FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT,
+      FOREIGN KEY (conductor_id) REFERENCES conductores(id) ON DELETE SET NULL
     );
 
     -- Índices para optimización de filtros y reportería de Envíos
@@ -103,8 +130,54 @@ function runMigrations() {
     console.log('✅ Migración aplicada: Columna plus_code añadida a la tabla envios.');
   }
 
-  // Crear índice de fecha_entrega de manera segura
+  if (!colNames.includes('conductor_id')) {
+    db.exec("ALTER TABLE envios ADD COLUMN conductor_id INTEGER REFERENCES conductores(id) ON DELETE SET NULL;");
+    console.log('✅ Migración aplicada: Columna conductor_id añadida a la tabla envios.');
+  }
+
+  if (!colNames.includes('latitud')) {
+    db.exec("ALTER TABLE envios ADD COLUMN latitud REAL;");
+    console.log('✅ Migración aplicada: Columna latitud añadida a la tabla envios.');
+  }
+
+  if (!colNames.includes('longitud')) {
+    db.exec("ALTER TABLE envios ADD COLUMN longitud REAL;");
+    console.log('✅ Migración aplicada: Columna longitud añadida a la tabla envios.');
+  }
+
+  if (!colNames.includes('prioridad')) {
+    db.exec("ALTER TABLE envios ADD COLUMN prioridad TEXT DEFAULT 'Normal';");
+    console.log('✅ Migración aplicada: Columna prioridad añadida a la tabla envios.');
+  }
+
+  if (!colNames.includes('orden_ruta')) {
+    db.exec("ALTER TABLE envios ADD COLUMN orden_ruta INTEGER DEFAULT 0;");
+    console.log('✅ Migración aplicada: Columna orden_ruta añadida a la tabla envios.');
+  }
+
+  // Crear índices de manera segura
   db.exec("CREATE INDEX IF NOT EXISTS idx_envios_fecha_entrega ON envios(fecha_entrega);");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_envios_conductor_id ON envios(conductor_id);");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_envios_orden_ruta ON envios(orden_ruta);");
+
+  // Autopoblar coordenadas para envíos existentes que no tengan lat/lng
+  const { getDistrictCoordinates } = require('../config/districts');
+  const nullCoords = db.prepare("SELECT id, distrito FROM envios WHERE latitud IS NULL OR longitud IS NULL").all();
+  if (nullCoords.length > 0) {
+    const updateStmt = db.prepare("UPDATE envios SET latitud = @lat, longitud = @lng WHERE id = @id");
+    const updateAll = db.transaction((rows) => {
+      for (const row of rows) {
+        const coords = getDistrictCoordinates(row.distrito || 'Cercado de Lima', true);
+        updateStmt.run({
+          id: row.id,
+          lat: coords.lat,
+          lng: coords.lng
+        });
+      }
+    });
+    updateAll(nullCoords);
+    console.log(`✅ Geocodificación retroactiva: ${nullCoords.length} envíos actualizados con coordenadas de su distrito.`);
+  }
 
   console.log('✅ Migraciones ejecutadas correctamente: Tablas e Índices creados.');
 }

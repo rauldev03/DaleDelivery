@@ -1,0 +1,974 @@
+<%- include('../partials/header') %>
+
+<style>
+  /* Layout del Módulo de Optimización de Rutas */
+  .route-optimizer-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: calc(100vh - 120px);
+  }
+
+  /* Barra de herramientas superior */
+  .route-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 12px 20px;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .route-top-bar .title-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .route-top-bar .title-section h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .route-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* Grid Principal: Panel Izquierdo + Mapa Central */
+  .route-main-workspace {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 16px;
+    min-height: 580px;
+  }
+
+  @media (max-width: 1024px) {
+    .route-main-workspace {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Panel Izquierdo */
+  .route-sidebar-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+    overflow: hidden;
+  }
+
+  .sidebar-tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(0,0,0,0.02);
+  }
+
+  .sidebar-tab-btn {
+    flex: 1;
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .sidebar-tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: var(--bg-card);
+  }
+
+  .sidebar-tab-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Cards de Conductores */
+  .driver-card {
+    background: var(--bg-main, #0F172A);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .driver-card:hover, .driver-card.selected {
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .driver-card.drag-over {
+    border: 2px dashed var(--primary);
+    background: rgba(59, 130, 246, 0.08);
+  }
+
+  .driver-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .driver-name {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .driver-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .driver-stats-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--primary);
+  }
+
+  .driver-shipment-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-color);
+  }
+
+  .shipment-pill {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .shipment-pill .pill-remove {
+    cursor: pointer;
+    color: #EF4444;
+    font-weight: bold;
+  }
+
+  /* Cards de Envíos Pendientes */
+  .pending-shipment-card {
+    background: var(--bg-main, #0F172A);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: grab;
+    transition: all 0.2s;
+  }
+
+  .pending-shipment-card:active {
+    cursor: grabbing;
+  }
+
+  .pending-shipment-card:hover {
+    border-color: #38BDF8;
+  }
+
+  .pending-shipment-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  /* Área Central: Mapa */
+  .map-wrapper-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+    position: relative;
+  }
+
+  #google-map-optimizer {
+    width: 100%;
+    height: 100%;
+    background: #1E293B;
+  }
+
+  .map-floating-legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: white;
+    font-size: 0.78rem;
+    z-index: 10;
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .legend-driver-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .legend-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Área Inferior: Tabla de Envíos */
+  .route-bottom-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg, 12px);
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .table-filter-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .table-search-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    min-width: 240px;
+    background: var(--bg-main);
+    color: var(--text-main);
+  }
+
+  .filter-pills-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .filter-pill-btn {
+    border: 1px solid var(--border-color);
+    background: var(--bg-main);
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-pill-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  /* Modales Estilizados */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .modal-overlay.show {
+    display: flex;
+  }
+
+  .modal-content-card {
+    background: var(--bg-card, #1E293B);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    color: var(--text-main, #F8FAFC);
+  }
+
+  .modal-header-custom {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #334155);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header-custom h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .modal-body-custom {
+    padding: 20px;
+  }
+
+  .modal-footer-custom {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color, #334155);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-group-custom {
+    margin-bottom: 14px;
+  }
+
+  .form-group-custom label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+  }
+
+  .form-control-custom {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 6px;
+    background: var(--bg-main, #0F172A);
+    color: var(--text-main, #F8FAFC);
+    font-size: 0.88rem;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .form-control-custom:focus {
+    border-color: var(--primary, #3B82F6);
+  }
+
+  .btn-primary-gradient {
+    background: linear-gradient(135deg, #2563EB, #1D4ED8);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+
+  .btn-primary-gradient:hover {
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary-custom {
+    background: #334155;
+    color: #F8FAFC;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .btn-optimize-pulse {
+    background: linear-gradient(135deg, #10B981, #059669);
+    color: white;
+    font-weight: 700;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+    transition: all 0.2s;
+  }
+
+  .btn-optimize-pulse:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+  }
+
+  /* Badge de Orden de Ruta */
+  .badge-stop-order {
+    background: #3B82F6;
+    color: white;
+    font-weight: 800;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+  }
+</style>
+
+<div class="route-optimizer-container">
+  
+  <!-- 1. Barra de Herramientas Superior -->
+  <div class="route-top-bar">
+    <div class="title-section">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary);">
+        <circle cx="6" cy="19" r="3"></circle>
+        <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+        <circle cx="18" cy="5" r="3"></circle>
+      </svg>
+      <h1>Optimización de Rutas</h1>
+    </div>
+
+    <div class="route-actions-group">
+      <!-- Selector de filtro por conductor en el mapa -->
+      <select id="map-driver-filter" class="form-control-custom" style="width: auto; padding: 6px 12px; font-size: 0.82rem;" onchange="filterMapByDriver(this.value)">
+        <option value="ALL">📍 Todos los Conductores</option>
+        <% if (drivers && drivers.length > 0) { %>
+          <% drivers.forEach(function(d) { %>
+            <option value="<%= d.id %>"><%= d.getVehiculoIcon() %> <%= d.nombreCompleto %></option>
+          <% }); %>
+        <% } %>
+      </select>
+
+      <!-- Botón para Ingresar/Configurar API Key de Google Maps -->
+      <button type="button" class="btn-secondary-custom" onclick="openApiKeyModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <span>🔑</span>
+        <span id="apikey-btn-label">API Key Google Maps</span>
+      </button>
+
+      <!-- Botón + Nuevo Envío -->
+      <button type="button" class="btn-secondary-custom" onclick="openNewShipmentModal()" style="display: inline-flex; align-items: center; gap: 6px;">
+        <span>📦</span>
+        <span>+ Nuevo Envío</span>
+      </button>
+
+      <!-- Botón Principal: Optimizar Rutas -->
+      <button type="button" class="btn-optimize-pulse" id="btn-optimize-routes" onclick="runRouteOptimization()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>Optimizar Rutas</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. Área de Trabajo Principal: Panel Izquierdo + Mapa Central -->
+  <div class="route-main-workspace">
+    
+    <!-- Panel Izquierdo: Conductores y Envíos Pendientes -->
+    <div class="route-sidebar-panel">
+      <div class="sidebar-tab-header">
+        <button class="sidebar-tab-btn active" id="tab-btn-drivers" onclick="switchSidebarTab('drivers')">
+          Conductores (<span id="count-drivers"><%= drivers ? drivers.length : 0 %></span>)
+        </button>
+        <button class="sidebar-tab-btn" id="tab-btn-unassigned" onclick="switchSidebarTab('unassigned')">
+          Sin Asignar (<span id="count-unassigned"><%= unassignedShipments ? unassignedShipments.length : 0 %></span>)
+        </button>
+      </div>
+
+      <!-- Tab 1: Conductores -->
+      <div class="sidebar-tab-body" id="tab-body-drivers">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Flota Activa</span>
+          <button type="button" class="btn-primary-gradient" style="padding: 4px 10px; font-size: 0.78rem;" onclick="openNewDriverModal()">
+            + Conductor
+          </button>
+        </div>
+
+        <div id="drivers-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+          <% if (drivers && drivers.length > 0) { %>
+            <% drivers.forEach(function(d, index) { %>
+              <div class="driver-card" id="driver-card-<%= d.id %>" data-driver-id="<%= d.id %>" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, <%= d.id %>)">
+                <div class="driver-card-header">
+                  <div class="driver-name">
+                    <span><%= d.getVehiculoIcon() %></span>
+                    <span><%= d.nombreCompleto %></span>
+                  </div>
+                  <span class="badge <%= d.getStatusBadgeClass() %>" style="font-size: 0.7rem;"><%= d.estado %></span>
+                </div>
+                
+                <div class="driver-meta">
+                  <span>🚗 <%= d.vehiculo %> (<%= d.placa || 'S/P' %>)</span>
+                  <% if (d.telefono) { %><span>📞 <%= d.telefono %></span><% } %>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span class="driver-stats-badge" id="driver-badge-<%= d.id %>">
+                    📦 <span class="shipment-count"><%= d.totalEnvios || 0 %></span> envíos asignados
+                  </span>
+                  <div>
+                    <button class="btn-icon-xs" title="Editar Conductor" onclick="editDriver(<%= d.id %>)" style="background:transparent; border:none; cursor:pointer; color:var(--text-muted);">✏️</button>
+                    <button class="btn-icon-xs" title="Eliminar Conductor" onclick="deleteDriver(<%= d.id %>)" style="background:transparent; border:none; cursor:pointer; color:#EF4444;">🗑️</button>
+                  </div>
+                </div>
+
+                <!-- Lista de envíos asignados al conductor -->
+                <div class="driver-shipment-pills" id="driver-pills-<%= d.id %>">
+                  <% 
+                    const driverShipments = shipments ? shipments.filter(s => s.conductorId === d.id) : [];
+                  %>
+                  <% if (driverShipments.length > 0) { %>
+                    <% driverShipments.forEach(function(s) { %>
+                      <div class="shipment-pill" id="pill-<%= s.id %>" title="<%= s.destinatarioNombre %> - <%= s.distrito %>">
+                        <% if (s.ordenRuta > 0) { %><strong>#<%= s.ordenRuta %></strong><% } %>
+                        <span><%= s.codigoEnvio %></span>
+                        <span class="pill-remove" onclick="unassignShipment(<%= s.id %>)" title="Quitar asignación">&times;</span>
+                      </div>
+                    <% }); %>
+                  <% } else { %>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">Arrastra envíos aquí o usa el botón asignar</span>
+                  <% } %>
+                </div>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">
+              No hay conductores registrados.<br>
+              <button class="btn-primary-gradient" style="margin-top: 10px;" onclick="openNewDriverModal()">+ Registrar Conductor</button>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Tab 2: Envíos Sin Asignar -->
+      <div class="sidebar-tab-body" id="tab-body-unassigned" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Envíos Disponibles</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Arrastra al conductor</span>
+        </div>
+
+        <div id="unassigned-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+          <% if (unassignedShipments && unassignedShipments.length > 0) { %>
+            <% unassignedShipments.forEach(function(s) { %>
+              <div class="pending-shipment-card" id="unassigned-card-<%= s.id %>" draggable="true" ondragstart="handleDragStart(event, <%= s.id %>)">
+                <div class="pending-shipment-header">
+                  <span style="color: var(--primary);"><%= s.codigoEnvio %></span>
+                  <span class="badge <%= s.getPriorityBadgeClass() %>" style="font-size: 0.68rem;"><%= s.prioridad %></span>
+                </div>
+                <div style="font-weight: 600; font-size: 0.82rem; margin: 2px 0; color: var(--text-main);"><%= s.destinatarioNombre %></div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);"><%= s.direccion %> - <strong><%= s.distrito %></strong></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);"><%= s.peso %> kg</span>
+                  <select class="form-control-custom" style="padding: 2px 6px; font-size: 0.75rem; width: auto;" onchange="assignShipmentDirectly(<%= s.id %>, this.value)">
+                    <option value="">Asignar a...</option>
+                    <% if (drivers) { %>
+                      <% drivers.forEach(function(d) { %>
+                        <option value="<%= d.id %>"><%= d.nombreCompleto %></option>
+                      <% }); %>
+                    <% } %>
+                  </select>
+                </div>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">
+              🎉 No hay envíos pendientes por asignar.
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Área Central: Mapa Google Maps -->
+    <div class="map-wrapper-card">
+      <div id="google-map-optimizer"></div>
+
+      <!-- Leyenda flotante de conductores y rutas en el mapa -->
+      <div class="map-floating-legend" id="map-legend">
+        <div style="font-weight: 700; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">
+          🗺️ Rutas Activas
+        </div>
+        <div id="legend-drivers-list">
+          <!-- Generado dinámicamente por JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Área Inferior: Tabla Operativa de Envíos -->
+  <div class="route-bottom-panel">
+    <div class="table-filter-bar">
+      <input type="text" id="shipment-table-search" class="table-search-input" placeholder="🔍 Buscar por código, cliente, destinatario o distrito..." oninput="filterShipmentsTable()" />
+
+      <div class="filter-pills-group">
+        <button class="filter-pill-btn active" data-filter="ALL" onclick="setTableFilter('ALL')">Todos</button>
+        <button class="filter-pill-btn" data-filter="PENDIENTE" onclick="setTableFilter('PENDIENTE')">Pendientes</button>
+        <button class="filter-pill-btn" data-filter="ASIGNADO" onclick="setTableFilter('ASIGNADO')">Asignados</button>
+        <button class="filter-pill-btn" data-filter="EN_RUTA" onclick="setTableFilter('EN_RUTA')">En ruta</button>
+        <button class="filter-pill-btn" data-filter="ENTREGADO" onclick="setTableFilter('ENTREGADO')">Entregados</button>
+      </div>
+    </div>
+
+    <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+      <table class="data-table" id="shipments-operational-table">
+        <thead>
+          <tr>
+            <th style="width: 50px;">Parada</th>
+            <th>Código</th>
+            <th>Cliente</th>
+            <th>Destinatario</th>
+            <th>Dirección / Distrito</th>
+            <th>Conductor Asignado</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+            <th>Peso</th>
+            <th style="text-align: right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="shipments-table-body">
+          <% if (shipments && shipments.length > 0) { %>
+            <% shipments.forEach(function(s) { %>
+              <tr id="row-shipment-<%= s.id %>" data-status="<%= s.estado %>" data-driver-id="<%= s.conductorId || '' %>" data-code="<%= s.codigoEnvio %>" data-client="<%= s.clienteNombre %>" data-dest="<%= s.destinatarioNombre %>" data-dist="<%= s.distrito %>">
+                <td>
+                  <% if (s.ordenRuta > 0) { %>
+                    <span class="badge-stop-order"><%= s.ordenRuta %></span>
+                  <% } else { %>
+                    <span style="color: var(--text-muted);">-</span>
+                  <% } %>
+                </td>
+                <td><strong style="color: var(--primary);"><%= s.codigoEnvio %></strong></td>
+                <td><%= s.clienteNombre || 'S/C' %></td>
+                <td>
+                  <div style="font-weight: 600;"><%= s.destinatarioNombre %></div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);"><%= s.destinatarioTelefono %></div>
+                </td>
+                <td>
+                  <div><%= s.direccion %></div>
+                  <small style="color: var(--text-muted); font-weight: 600;"><%= s.distrito %></small>
+                </td>
+                <td>
+                  <select class="form-control-custom" style="padding: 4px 8px; font-size: 0.8rem; min-width: 150px;" onchange="handleTableDriverChange(<%= s.id %>, this.value)">
+                    <option value="">-- Sin Conductor --</option>
+                    <% if (drivers) { %>
+                      <% drivers.forEach(function(d) { %>
+                        <option value="<%= d.id %>" <%= s.conductorId === d.id ? 'selected' : '' %>>
+                          <%= d.getVehiculoIcon() %> <%= d.nombreCompleto %>
+                        </option>
+                      <% }); %>
+                    <% } %>
+                  </select>
+                </td>
+                <td><span class="badge <%= s.getPriorityBadgeClass() %>"><%= s.prioridad %></span></td>
+                <td><span class="badge <%= s.getStatusBadgeClass() %>"><%= s.estado %></span></td>
+                <td><%= s.peso %> kg</td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn-secondary-custom" style="padding: 4px 8px; font-size: 0.75rem;" title="Centrar en Mapa" onclick="focusShipmentOnMap(<%= s.id %>, <%= s.latitud %>, <%= s.longitud %>)">
+                    📍 Ver
+                  </button>
+                  <% if (s.conductorId) { %>
+                    <button class="btn-secondary-custom" style="padding: 4px 8px; font-size: 0.75rem; color: #EF4444;" title="Quitar asignación" onclick="unassignShipment(<%= s.id %>)">
+                      ✖
+                    </button>
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          <% } else { %>
+            <tr>
+              <td colspan="10" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                No hay envíos registrados en el sistema.
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODALES: Conductor, Envío y Google Maps API Key                           -->
+<!-- ========================================================================= -->
+
+<!-- Modal 1: Nuevo / Editar Conductor -->
+<div class="modal-overlay" id="modal-driver">
+  <div class="modal-content-card">
+    <div class="modal-header-custom">
+      <h3 id="modal-driver-title">+ Nuevo Conductor</h3>
+      <button class="modal-close-btn" onclick="closeDriverModal()">&times;</button>
+    </div>
+    <form id="form-driver" onsubmit="handleDriverFormSubmit(event)">
+      <input type="hidden" id="driver-id" name="id" value="" />
+      <div class="modal-body-custom">
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="driver-nombre">Nombres *</label>
+            <input type="text" id="driver-nombre" class="form-control-custom" required placeholder="Ej: Carlos" />
+          </div>
+          <div class="form-group-custom">
+            <label for="driver-apellidos">Apellidos *</label>
+            <input type="text" id="driver-apellidos" class="form-control-custom" required placeholder="Ej: Mendoza" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="driver-documento">DNI / Documento *</label>
+            <input type="text" id="driver-documento" class="form-control-custom" required placeholder="Ej: 72819283" />
+          </div>
+          <div class="form-group-custom">
+            <label for="driver-telefono">Teléfono / WhatsApp</label>
+            <input type="text" id="driver-telefono" class="form-control-custom" placeholder="Ej: 987654321" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="driver-vehiculo">Vehículo *</label>
+            <select id="driver-vehiculo" class="form-control-custom" required>
+              <option value="Moto">🏍️ Motocicleta</option>
+              <option value="Auto">🚗 Automóvil</option>
+              <option value="Furgoneta">🚐 Furgoneta / Camioneta</option>
+              <option value="Bicicleta">🚲 Bicicleta</option>
+            </select>
+          </div>
+          <div class="form-group-custom">
+            <label for="driver-placa">Placa</label>
+            <input type="text" id="driver-placa" class="form-control-custom" placeholder="Ej: 4321-AB" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="driver-capacidad">Capacidad Máx (kg)</label>
+            <input type="number" id="driver-capacidad" class="form-control-custom" value="30" step="0.5" />
+          </div>
+          <div class="form-group-custom">
+            <label for="driver-estado">Estado *</label>
+            <select id="driver-estado" class="form-control-custom">
+              <option value="Disponible">Disponible</option>
+              <option value="En ruta">En ruta</option>
+              <option value="No disponible">No disponible</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-secondary-custom" onclick="closeDriverModal()">Cancelar</button>
+        <button type="submit" class="btn-primary-gradient" id="btn-save-driver">Guardar Conductor</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal 2: Nuevo Envío con Geocodificación -->
+<div class="modal-overlay" id="modal-shipment">
+  <div class="modal-content-card" style="max-width: 600px;">
+    <div class="modal-header-custom">
+      <h3>+ Registrar Nuevo Envío</h3>
+      <button class="modal-close-btn" onclick="closeShipmentModal()">&times;</button>
+    </div>
+    <form id="form-shipment" onsubmit="handleShipmentFormSubmit(event)">
+      <div class="modal-body-custom">
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="shipment-cliente">Cliente Remitente *</label>
+            <select id="shipment-cliente" class="form-control-custom" required>
+              <option value="">Seleccione un cliente...</option>
+              <% if (clients && clients.length > 0) { %>
+                <% clients.forEach(function(c) { %>
+                  <option value="<%= c.id %>"><%= c.razonSocialNombre %> (<%= c.codigoCliente %>)</option>
+                <% }); %>
+              <% } %>
+            </select>
+          </div>
+          <div class="form-group-custom">
+            <label for="shipment-prioridad">Prioridad *</label>
+            <select id="shipment-prioridad" class="form-control-custom">
+              <option value="Normal" selected>Normal</option>
+              <option value="Alta">⚡ Alta (Urgente)</option>
+              <option value="Baja">Baja</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="shipment-destinatario">Destinatario *</label>
+            <input type="text" id="shipment-destinatario" class="form-control-custom" required placeholder="Nombre de quien recibe" />
+          </div>
+          <div class="form-group-custom">
+            <label for="shipment-telefono">Teléfono *</label>
+            <input type="text" id="shipment-telefono" class="form-control-custom" required placeholder="987654321" />
+          </div>
+        </div>
+
+        <div class="form-group-custom">
+          <label for="shipment-direccion">Dirección de Destino *</label>
+          <input type="text" id="shipment-direccion" class="form-control-custom" required placeholder="Av. Javier Prado Este 2465, San Borja" />
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="shipment-distrito">Distrito *</label>
+            <select id="shipment-distrito" class="form-control-custom" required>
+              <option value="">Seleccione distrito...</option>
+              <% if (districts && districts.length > 0) { %>
+                <% districts.forEach(function(dist) { %>
+                  <option value="<%= dist %>"><%= dist %></option>
+                <% }); %>
+              <% } %>
+            </select>
+          </div>
+          <div class="form-group-custom">
+            <label for="shipment-referencia">Referencia</label>
+            <input type="text" id="shipment-referencia" class="form-control-custom" placeholder="Frente al parque / Dpto 402" />
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="shipment-pluscode">Plus Code / Link Google Maps</label>
+            <input type="text" id="shipment-pluscode" class="form-control-custom" placeholder="Ej: 57V5+2X Lima o https://maps.app..." />
+          </div>
+          <div class="form-group-custom">
+            <label for="shipment-conductor">Asignar a Conductor</label>
+            <select id="shipment-conductor" class="form-control-custom">
+              <option value="">-- Dejar Sin Asignar --</option>
+              <% if (drivers) { %>
+                <% drivers.forEach(function(d) { %>
+                  <option value="<%= d.id %>"><%= d.getVehiculoIcon() %> <%= d.nombreCompleto %></option>
+                <% }); %>
+              <% } %>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group-custom">
+            <label for="shipment-peso">Peso (kg)</label>
+            <input type="number" id="shipment-peso" class="form-control-custom" value="1.0" step="0.1" />
+          </div>
+          <div class="form-group-custom">
+            <label for="shipment-paquetes">Cant. Paquetes</label>
+            <input type="number" id="shipment-paquetes" class="form-control-custom" value="1" min="1" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer-custom">
+        <button type="button" class="btn-secondary-custom" onclick="closeShipmentModal()">Cancelar</button>
+        <button type="submit" class="btn-primary-gradient" id="btn-save-shipment">Guardar Envío</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal 3: Configurar Google Maps API Key -->
+<div class="modal-overlay" id="modal-apikey">
+  <div class="modal-content-card">
+    <div class="modal-header-custom">
+      <h3>🔑 Configuración de Google Maps API</h3>
+      <button class="modal-close-btn" onclick="closeApiKeyModal()">&times;</button>
+    </div>
+    <div class="modal-body-custom">
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+        Ingresa tu API Key de Google Maps para habilitar mapas satelitales, Places Autocomplete y cálculo de rutas en tiempo real. La clave se guardará de forma segura en tu navegador.
+      </p>
+
+      <div class="form-group-custom">
+        <label for="google-maps-apikey-input">API Key de Google Maps</label>
+        <input 
+          type="text" 
+          id="google-maps-apikey-input" 
+          class="form-control-custom" 
+          placeholder="AIzaSy..." 
+          value="<%= googleMapsApiKey || '' %>"
+          style="font-family: monospace; font-size: 0.9rem;"
+        />
+      </div>
+
+      <div style="font-size: 0.78rem; color: var(--text-muted); background: rgba(59, 130, 246, 0.08); padding: 10px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2);">
+        💡 <strong>Nota:</strong> Si no cuentas con una API Key activa en este momento, el sistema utilizará el motor de mapa local y optimización geométrica de alta velocidad sin costo adicional.
+      </div>
+    </div>
+    <div class="modal-footer-custom">
+      <button type="button" class="btn-secondary-custom" onclick="closeApiKeyModal()">Cerrar</button>
+      <button type="button" class="btn-primary-gradient" onclick="saveGoogleMapsApiKey()">Guardar y Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts de Optimización de Rutas & Google Maps -->
+<script>
+  window.SERVER_GOOGLE_MAPS_KEY = "<%= googleMapsApiKey || '' %>";
+</script>
+<script src="/js/route-optimizer.js"></script>
+
+<%- include('../partials/footer') %>

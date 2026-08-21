@@ -15,7 +15,8 @@ const tests = [
   'test_batch_shipments.js',
   'test_excel_paste_and_districts.js',
   'test_maps_and_plus_code.js',
-  'test_map_viewer.js'
+  'test_map_viewer.js',
+  'test_route_optimization.js'
 ];
 
 let allPassed = true;
