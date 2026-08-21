@@ -13,6 +13,7 @@ class ClientController {
 
     res.render('clients/index', {
       title: 'Gestión de Clientes - Courier Pro',
+      currentPath: '/clientes',
       clients: result.clients,
       pagination: {
         total: result.total,
@@ -31,6 +32,7 @@ class ClientController {
     const nextCode = clientService.getNextClientCode();
     res.render('clients/create', {
       title: 'Registrar Nuevo Cliente - Courier Pro',
+      currentPath: '/clientes',
       nextCode,
       districts: LIMA_CALLAO_DISTRICTS,
       departments: PERU_DEPARTMENTS,
@@ -53,6 +55,7 @@ class ClientController {
       const nextCode = clientService.getNextClientCode();
       return res.render('clients/create', {
         title: 'Registrar Nuevo Cliente - Courier Pro',
+        currentPath: '/clientes',
         nextCode,
         districts: LIMA_CALLAO_DISTRICTS,
         departments: PERU_DEPARTMENTS,
@@ -77,6 +80,7 @@ class ClientController {
 
     res.render('clients/edit', {
       title: `Editar Cliente ${client.codigoCliente} - Courier Pro`,
+      currentPath: '/clientes',
       client,
       districts: LIMA_CALLAO_DISTRICTS,
       departments: PERU_DEPARTMENTS,
@@ -94,6 +98,7 @@ class ClientController {
       const currentClient = clientService.getClientById(id);
       return res.render('clients/edit', {
         title: `Editar Cliente ${currentClient ? currentClient.codigoCliente : ''} - Courier Pro`,
+        currentPath: '/clientes',
         client: { ...req.body, id, codigoCliente: currentClient ? currentClient.codigoCliente : '' },
         districts: LIMA_CALLAO_DISTRICTS,
         departments: PERU_DEPARTMENTS,
@@ -117,6 +122,7 @@ class ClientController {
 
     res.render('clients/show', {
       title: `Detalle del Cliente ${client.codigoCliente} - Courier Pro`,
+      currentPath: '/clientes',
       client
     });
   }
